@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="OptiTank" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#121212" />
+    <title>OptiTank Web App</title>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Main Content Area -->
+      <main id="main-content">
+        <!-- Views will be injected here by JS -->
+      </main>
+
+      <!-- Bottom Navigation -->
+      <nav class="bottom-nav">
+        <button class="nav-item active" data-view="radar" aria-label="Radar">
+          <div class="icon-container">
+            <i class="ph-bold ph-broadcast"></i>
+          </div>
+        </button>
+        <button class="nav-item" data-view="route" aria-label="Trajets">
+          <div class="icon-container">
+            <i class="ph-bold ph-map-trifold"></i>
+          </div>
+        </button>
+        <button class="nav-item" data-view="map" aria-label="Carte">
+          <div class="icon-container">
+            <i class="ph-bold ph-map-pin"></i>
+          </div>
+        </button>
+        <button class="nav-item" data-view="profile" aria-label="Profil">
+          <div class="icon-container">
+            <i class="ph-bold ph-user"></i>
+          </div>
+        </button>
+      </nav>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
