@@ -1,6 +1,18 @@
 import WidgetKit
 import SwiftUI
 
+// MARK: - Compat helper (containerBackground iOS 17+, background iOS 16)
+private extension View {
+    @ViewBuilder
+    func widgetBg(_ color: Color) -> some View {
+        if #available(iOSApplicationExtension 17.0, *) {
+            self.containerBackground(color, for: .widget)
+        } else {
+            self.background(color)
+        }
+    }
+}
+
 // MARK: - Colors
 private extension Color {
     static let otPurple = Color(red: 0.545, green: 0.361, blue: 0.965)
@@ -90,7 +102,7 @@ struct SmallWidgetView: View {
             }
             .padding(14)
         }
-        .containerBackground(Color.otBg, for: .widget)
+        .widgetBg(Color.otBg)
         .widgetURL(URL(string: "optitank://radar"))
     }
 }
@@ -151,7 +163,7 @@ struct MediumWidgetView: View {
                 .padding(.horizontal, 10).padding(.vertical, 14).frame(maxWidth: .infinity)
             }
         }
-        .containerBackground(Color.otBg, for: .widget)
+        .widgetBg(Color.otBg)
         .widgetURL(URL(string: "optitank://radar"))
     }
 }
@@ -232,7 +244,7 @@ struct LargeWidgetView: View {
             }
             .padding(14)
         }
-        .containerBackground(Color.otBg, for: .widget)
+        .widgetBg(Color.otBg)
         .widgetURL(URL(string: "optitank://radar"))
     }
 }
