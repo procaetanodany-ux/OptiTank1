@@ -348,7 +348,8 @@ struct OptiTankWidget: Widget {
 struct FavSmallView: View {
     let entry: WidgetEntry
     var body: some View {
-        let fav = entry.data.favorites.first
+        // Station sélectionnée dans le profil en priorité, sinon premier favori
+        let fav = entry.data.selectedStation ?? entry.data.favorites.first
         ZStack(alignment: .bottom) {
             Circle().fill(Color(red: 0.94, green: 0.27, blue: 0.27).opacity(0.12)).frame(width: 90).offset(x: 40, y: -40)
             VStack(alignment: .leading, spacing: 4) {
@@ -382,7 +383,7 @@ struct FavSmallView: View {
         }
         .widgetBg(Color.otBg)
         .widgetURL({
-            if let id = entry.data.favorites.first?.id, !id.isEmpty {
+            if let id = fav?.id, !id.isEmpty {
                 return URL(string: "optitank://station?id=\(id)")
             }
             return URL(string: "optitank://radar")
