@@ -24,7 +24,7 @@ struct WidgetData: Codable {
 
     // Station à afficher en priorité : sélection manuelle > sinon meilleur prix 25km
     var displayStation: WidgetStation {
-        selectedStation ?? WidgetStation(name: stationName, price: bestPrice, distance: distance)
+        selectedStation ?? WidgetStation(name: stationName, price: bestPrice, distance: distance, id: nil)
     }
 
     static let placeholder = WidgetData(
