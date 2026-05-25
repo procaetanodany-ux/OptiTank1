@@ -2,7 +2,6 @@ import SwiftUI
 import WebKit
 import WidgetKit
 
-// Observable state shared between WebView and ContentView
 class WebViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var canGoBack = false
@@ -29,7 +28,6 @@ struct WebView: UIViewRepresentable {
     @ObservedObject var model: WebViewModel
     let url: URL
 
-    // MARK: Coordinator — handles WKWebView delegate callbacks
     class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         let model: WebViewModel
 
@@ -46,7 +44,6 @@ struct WebView: UIViewRepresentable {
             DispatchQueue.main.async {
                 self.model.isLoading = false
                 self.model.canGoBack = webView.canGoBack
-                // Fire pending deep-link navigation (e.g. from widget tap while app was cold)
                 if let pending = self.model.pendingDeepLink {
                     self.model.pendingDeepLink = nil
                     self.model.navigate(to: pending)
@@ -66,7 +63,6 @@ struct WebView: UIViewRepresentable {
             DispatchQueue.main.async { self.model.isLoading = false }
         }
 
-        // Allow internal links, open external ones in Safari
         func webView(
             _ webView: WKWebView,
             decidePolicyFor action: WKNavigationAction,
@@ -84,14 +80,13 @@ struct WebView: UIViewRepresentable {
             }
         }
 
-        // JS → Swift bridge: window.webkit.messageHandlers.optitank.postMessage({type:"...", ...})
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let body = message.body as? [String: Any] else { return }
             switch body["type"] as? String {
             case "requestNotifications":
                 NotificationManager.shared.requestPermission()
             case "getAPNSToken":
-                let token = UserDefaults.standard.string(forKey: "apns_device_token") ?? ""
+                let token = UserDefaults.standard.string(forKey: "fcm_device_token") ?? ""
                 model.webView?.evaluateJavaScript("window.__apnsToken = '\(token)'; window.dispatchEvent(new CustomEvent('apns-token', {detail: '\(token)'}));", completionHandler: nil)
             case "navigate":
                 if let urlString = body["url"] as? String { model.navigate(to: urlString) }
@@ -104,7 +99,6 @@ struct WebView: UIViewRepresentable {
                     WidgetCenter.shared.reloadAllTimelines()
                 }
             case "saveApnsToken":
-                // Token already saved in AppDelegate; this is a no-op for bridge compatibility
                 break
             default:
                 break
@@ -119,6 +113,12 @@ struct WebView: UIViewRepresentable {
         @objc func handleNavigate(_ notification: Notification) {
             if let urlString = notification.object as? String { model.navigate(to: urlString) }
         }
+
+        @objc func handleFCMToken(_ notification: Notification) {
+            guard let token = notification.object as? String else { return }
+            let js = "window.__apnsToken = '\(token)'; window.dispatchEvent(new CustomEvent('apns-token', {detail: '\(token)'}));"
+            model.webView?.evaluateJavaScript(js, completionHandler: nil)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(model) }
@@ -128,12 +128,10 @@ struct WebView: UIViewRepresentable {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
 
-        // Inject: navigator.standalone = true  (so the PWA gate lets the app through)
         let bootstrap = WKUserScript(
             source: """
                 Object.defineProperty(navigator, 'standalone', { get: () => true, configurable: true });
                 window.isOptiTankApp = true;
-                // Bridge helper callable from JS: OptiTankBridge.post({type:'requestNotifications'})
                 window.OptiTankBridge = { post: (m) => window.webkit.messageHandlers.optitank.postMessage(m) };
             """,
             injectionTime: .atDocumentStart,
@@ -150,17 +148,22 @@ struct WebView: UIViewRepresentable {
         wv.isOpaque = false
         wv.backgroundColor = .clear
 
-        // Pull-to-refresh
         let refresh = UIRefreshControl()
-        refresh.tintColor = UIColor(red: 0.545, green: 0.361, blue: 0.965, alpha: 1) // purple
+        refresh.tintColor = UIColor(red: 0.545, green: 0.361, blue: 0.965, alpha: 1)
         refresh.addTarget(context.coordinator, action: #selector(Coordinator.handleRefresh(_:)), for: .valueChanged)
         wv.scrollView.addSubview(refresh)
 
-        // Listen for deep-link navigation from notification taps
         NotificationCenter.default.addObserver(
             context.coordinator,
             selector: #selector(Coordinator.handleNavigate(_:)),
             name: .navigateToURL,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.handleFCMToken(_:)),
+            name: .fcmTokenReceived,
             object: nil
         )
 

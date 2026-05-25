@@ -1,29 +1,35 @@
 import UIKit
 import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
-class AppDelegate: NSObject, UIApplicationDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        FirebaseApp.configure()
         UNUserNotificationCenter.current().delegate = NotificationManager.shared
+        Messaging.messaging().delegate = self
         return true
     }
 
-    // Called after successful APNs registration — save token for use in the web app
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        print("APNs token: \(token)")
-        UserDefaults.standard.set(token, forKey: "apns_device_token")
-        NotificationCenter.default.post(name: .apnsTokenReceived, object: token)
+        Messaging.messaging().apnsToken = deviceToken
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("APNs registration failed: \(error.localizedDescription)")
     }
 
-    // Background push support
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let token = fcmToken else { return }
+        print("FCM token: \(token)")
+        UserDefaults.standard.set(token, forKey: "fcm_device_token")
+        NotificationCenter.default.post(name: .fcmTokenReceived, object: token)
+    }
+
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
@@ -34,6 +40,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 extension Notification.Name {
-    static let apnsTokenReceived = Notification.Name("apnsTokenReceived")
+    static let fcmTokenReceived = Notification.Name("fcmTokenReceived")
     static let navigateToURL    = Notification.Name("navigateToURL")
 }

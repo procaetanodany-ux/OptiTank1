@@ -43,14 +43,14 @@ export async function fetchStationHistory(stationId, numDays = 14) {
 
 const BENZIN_API = '/api/benzin/benzinGetStationByBbox';
 const CH_BBOX = [5.9, 45.8, 10.6, 47.8];
-const FETCH_FUELS = ['SP95', 'SP98', 'DIESEL', 'GPL'];
-const FUEL_LABEL = { SP95: 'SP95', SP98: 'SP98', DIESEL: 'Diesel', GPL: 'GPL', GNC: 'GNC' };
+const FETCH_FUELS = ['SP95', 'SP98', 'DIESEL', 'DIESEL_PREMIUM', 'GPL', 'GNC', 'E85'];
+const FUEL_LABEL = { SP95: 'SP95', SP98: 'SP98', DIESEL: 'Diesel', DIESEL_PREMIUM: 'Diesel Premium', GPL: 'GPL', GNC: 'GNC', E85: 'E85' };
 
 /**
  * Récupère TOUTES les stations non-supprimées depuis Firestore
  */
 export async function fetchTCSStations() {
-  const CACHE_KEY = 'fillz_stations_cache_v2';
+  const CACHE_KEY = 'fillz_stations_cache_v3';
   const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');

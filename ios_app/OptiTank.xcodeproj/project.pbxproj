@@ -16,6 +16,9 @@
 		8B5CF663DDDD0000002002 /* OptiTankWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B5CF663DDDD0000001002 /* OptiTankWidget.swift */; };
 		8B5CF663DDDD0000002003 /* WidgetDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B5CF663DDDD0000001003 /* WidgetDataProvider.swift */; };
 		8B5CF663DDDD0000002010 /* OptiTankWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 8B5CF663DDDD0000001005 /* OptiTankWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8B5CF663000000000000B006 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8B5CF663000000000000A007 /* GoogleService-Info.plist */; };
+		8B5CF663000000000000BF01 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8B5CF663000000000000PD01 /* FirebaseCore */; };
+		8B5CF663000000000000BF02 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 8B5CF663000000000000PD02 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +52,7 @@
 		8B5CF663000000000000A004 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		8B5CF663000000000000A005 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		8B5CF663000000000000A006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8B5CF663000000000000A007 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		8B5CF663000000000000C001 /* OptiTank.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OptiTank.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8B5CF663DDDD0000001001 /* OptiTankWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptiTankWidgetBundle.swift; sourceTree = "<group>"; };
 		8B5CF663DDDD0000001002 /* OptiTankWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptiTankWidget.swift; sourceTree = "<group>"; };
@@ -62,6 +66,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8B5CF663000000000000BF01 /* FirebaseCore in Frameworks */,
+				8B5CF663000000000000BF02 /* FirebaseMessaging in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -93,6 +99,7 @@
 				8B5CF663000000000000A004 /* WebView.swift */,
 				8B5CF663000000000000A005 /* NotificationManager.swift */,
 				8B5CF663000000000000A006 /* Info.plist */,
+				8B5CF663000000000000A007 /* GoogleService-Info.plist */,
 			);
 			path = OptiTank;
 			sourceTree = "<group>";
@@ -135,6 +142,10 @@
 				8B5CF663DDDD0000006002 /* PBXTargetDependency */,
 			);
 			name = OptiTank;
+			packageProductDependencies = (
+				8B5CF663000000000000PD01 /* FirebaseCore */,
+				8B5CF663000000000000PD02 /* FirebaseMessaging */,
+			);
 			productName = OptiTank;
 			productReference = 8B5CF663000000000000C001 /* OptiTank.app */;
 			productType = "com.apple.product-type.application";
@@ -184,6 +195,9 @@
 			);
 			mainGroup = 8B5CF663000000000000D001;
 			productRefGroup = 8B5CF663000000000000D003 /* Products */;
+			packageReferences = (
+				8B5CF663000000000000PKG1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -198,6 +212,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8B5CF663000000000000B006 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -489,6 +504,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8B5CF663000000000000PKG1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8B5CF663000000000000PD01 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8B5CF663000000000000PKG1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		8B5CF663000000000000PD02 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8B5CF663000000000000PKG1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 8B5CF6636F1100000000PROJ /* Project object */;
 }
