@@ -307,6 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
               email: user.email || '',
               updatedAt: new Date().toISOString(),
             }, { merge: true });
+            // Aussi dans users/{uid} pour que la Cloud Function puisse le lire
+            await setDoc(doc(db, 'users', user.uid), { apnsToken: token }, { merge: true });
           } catch(_) {}
         };
 

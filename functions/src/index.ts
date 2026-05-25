@@ -74,17 +74,20 @@ export const priceAlertTrigger = onDocumentWritten(
     const sends: Promise<void>[] = [];
 
     for (const userDoc of usersSnap.docs) {
-      const profile = userDoc.data() as {
+      const data = userDoc.data() as {
         apnsToken?: string;
+        profile?: { fuelType?: string; priceAlerts?: boolean };
         favorites?: string[];
-        fuelType?: string;
-        priceAlerts?: boolean;
       };
 
-      if (!profile.apnsToken || !profile.priceAlerts) continue;
+      const apnsToken = data.apnsToken;
+      if (!apnsToken) continue;
 
-      const fuel = profile.fuelType ?? "SP95";
-      const favorites = profile.favorites ?? [];
+      const priceAlerts = data.profile?.priceAlerts ?? true;
+      if (!priceAlerts) continue;
+
+      const fuel = data.profile?.fuelType ?? "SP95";
+      const favorites = data.favorites ?? [];
 
       for (const stationId of favorites) {
         const prices = after[stationId];
@@ -103,7 +106,7 @@ export const priceAlertTrigger = onDocumentWritten(
         if (!prevPrice || parseFloat(newPrice) < parseFloat(prevPrice) - 0.01) {
           sends.push(
             sendAPNS(
-              profile.apnsToken,
+              apnsToken,
               "Prix en baisse !",
               `${fuel} à CHF ${newPrice} dans ta station favorite`,
               { stationId, fuel, price: newPrice }
