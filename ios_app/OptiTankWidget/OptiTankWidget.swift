@@ -59,7 +59,6 @@ struct SmallWidgetView: View {
     let entry: WidgetEntry
     var body: some View {
         ZStack(alignment: .bottom) {
-            ContainerRelativeShape().fill(Color.otBg)
             Circle().fill(Color.otPurple.opacity(0.15)).frame(width: 90).offset(x: 40, y: -40)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -91,6 +90,7 @@ struct SmallWidgetView: View {
             }
             .padding(14)
         }
+        .containerBackground(Color.otBg, for: .widget)
         .widgetURL(URL(string: "optitank://radar"))
     }
 }
@@ -100,7 +100,6 @@ struct MediumWidgetView: View {
     let entry: WidgetEntry
     var body: some View {
         ZStack {
-            ContainerRelativeShape().fill(Color.otBg)
             HStack(spacing: 0) {
                 // Left — big price
                 VStack(alignment: .leading, spacing: 4) {
@@ -152,6 +151,7 @@ struct MediumWidgetView: View {
                 .padding(.horizontal, 10).padding(.vertical, 14).frame(maxWidth: .infinity)
             }
         }
+        .containerBackground(Color.otBg, for: .widget)
         .widgetURL(URL(string: "optitank://radar"))
     }
 }
@@ -164,7 +164,6 @@ struct LargeWidgetView: View {
     }
     var body: some View {
         ZStack {
-            ContainerRelativeShape().fill(Color.otBg)
             Circle().fill(Color.otPurple.opacity(0.12)).frame(width: 120).offset(x: 80, y: -60)
             Circle().fill(Color.otTeal.opacity(0.08)).frame(width: 80).offset(x: -60, y: 80)
             VStack(alignment: .leading, spacing: 10) {
@@ -233,6 +232,7 @@ struct LargeWidgetView: View {
             }
             .padding(14)
         }
+        .containerBackground(Color.otBg, for: .widget)
         .widgetURL(URL(string: "optitank://radar"))
     }
 }

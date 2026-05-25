@@ -296,6 +296,12 @@ body {
   align-items: center;
   width: 100%;
   position: relative;
+  touch-action: pan-y;
+  overflow: hidden;
+}
+
+#radar-canvas {
+  touch-action: pan-y;
 }
 
 .radar {
