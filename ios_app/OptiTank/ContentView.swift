@@ -20,9 +20,17 @@ struct ContentView: View {
         }
         .animation(.easeOut(duration: 0.3), value: model.isLoading)
         .onAppear {
-            // Ask for notification permission ~1 second after launch
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 NotificationManager.shared.requestPermission()
+            }
+        }
+        .onOpenURL { url in
+            guard url.scheme == "optitank" else { return }
+            if url.host == "station",
+               let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+               let stationId = comps.queryItems?.first(where: { $0.name == "id" })?.value,
+               !stationId.isEmpty {
+                model.openDeepLink(stationId: stationId)
             }
         }
     }

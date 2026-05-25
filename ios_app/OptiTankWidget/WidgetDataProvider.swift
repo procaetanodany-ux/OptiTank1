@@ -8,6 +8,7 @@ struct WidgetStation: Codable {
     let name: String
     let price: String
     let distance: String
+    let id: String?
 }
 
 struct WidgetData: Codable {
@@ -32,13 +33,13 @@ struct WidgetData: Codable {
         distance: "2.3",
         fuelType: "SP95",
         stations: [
-            WidgetStation(name: "Avia Cheseaux",    price: "1.720", distance: "2.3"),
-            WidgetStation(name: "BP Lausanne-Nord", price: "1.759", distance: "3.1"),
-            WidgetStation(name: "Shell Crissier",   price: "1.880", distance: "4.7"),
-            WidgetStation(name: "Total Écluse",     price: "1.970", distance: "5.2"),
+            WidgetStation(name: "Avia Cheseaux",    price: "1.720", distance: "2.3", id: nil),
+            WidgetStation(name: "BP Lausanne-Nord", price: "1.759", distance: "3.1", id: nil),
+            WidgetStation(name: "Shell Crissier",   price: "1.880", distance: "4.7", id: nil),
+            WidgetStation(name: "Total Écluse",     price: "1.970", distance: "5.2", id: nil),
         ],
         favorites: [
-            WidgetStation(name: "Shell Crissier", price: "1.880", distance: "4.7"),
+            WidgetStation(name: "Shell Crissier", price: "1.880", distance: "4.7", id: nil),
         ],
         selectedStation: nil,
         priceHistory: [1.95, 1.98, 1.84, 1.78, 1.75, 1.72, 1.720],

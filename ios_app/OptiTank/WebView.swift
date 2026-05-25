@@ -7,12 +7,21 @@ class WebViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var canGoBack = false
     weak var webView: WKWebView?
+    var pendingDeepLink: String?
 
     func goBack()  { webView?.goBack() }
     func reload()  { webView?.reload() }
     func navigate(to urlString: String) {
         guard let url = URL(string: urlString) else { return }
         webView?.load(URLRequest(url: url))
+    }
+    func openDeepLink(stationId: String) {
+        let target = "https://optitank.online?app=1&view=map&station=\(stationId)"
+        if isLoading || webView == nil {
+            pendingDeepLink = target
+        } else {
+            navigate(to: target)
+        }
     }
 }
 
@@ -37,8 +46,12 @@ struct WebView: UIViewRepresentable {
             DispatchQueue.main.async {
                 self.model.isLoading = false
                 self.model.canGoBack = webView.canGoBack
+                // Fire pending deep-link navigation (e.g. from widget tap while app was cold)
+                if let pending = self.model.pendingDeepLink {
+                    self.model.pendingDeepLink = nil
+                    self.model.navigate(to: pending)
+                }
             }
-            // Signal the web app that it is running inside the native iOS app
             webView.evaluateJavaScript(
                 "window.isOptiTankApp = true; window.dispatchEvent(new Event('optitank-native-ready'));",
                 completionHandler: nil

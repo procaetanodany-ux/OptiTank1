@@ -66,26 +66,23 @@ struct SparklineView: View {
     }
 }
 
-// MARK: - Small (2×2)
+// MARK: - Small (2×2) — Meilleur prix 25 km
 struct SmallWidgetView: View {
     let entry: WidgetEntry
     var body: some View {
-        let s = entry.data.displayStation
-        let isSelected = entry.data.selectedStation != nil
         ZStack(alignment: .bottom) {
-            Circle().fill(Color.otPurple.opacity(0.15)).frame(width: 90).offset(x: 40, y: -40)
+            Circle().fill(Color.otGreen.opacity(0.12)).frame(width: 90).offset(x: 40, y: -40)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(entry.data.fuelType)
                         .font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.45))
                         .textCase(.uppercase).kerning(0.5)
                     Spacer()
-                    Image(systemName: isSelected ? "heart.fill" : "fuelpump.fill")
-                        .foregroundColor(isSelected ? Color(red: 0.94, green: 0.27, blue: 0.27) : Color.otPurple)
-                        .font(.system(size: 13))
+                    Image(systemName: "fuelpump.fill")
+                        .foregroundColor(Color.otGreen).font(.system(size: 13))
                 }
                 Spacer()
-                Text(s.price)
+                Text(entry.data.bestPrice)
                     .font(.system(size: 44, weight: .black, design: .rounded))
                     .foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.65)
                 Text("CHF / litre")
@@ -94,11 +91,11 @@ struct SmallWidgetView: View {
                 Divider().background(Color.otBorder)
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(s.name)
+                        Text(entry.data.stationName)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white.opacity(0.75)).lineLimit(1)
-                        Text("\(s.distance) km · \(isSelected ? "favori" : "25km")")
-                            .font(.system(size: 10, weight: .bold)).foregroundColor(Color.otTeal)
+                        Text("\(entry.data.distance) km · 25 km")
+                            .font(.system(size: 10, weight: .bold)).foregroundColor(Color.otGreen)
                     }
                     Spacer()
                 }
@@ -384,7 +381,12 @@ struct FavSmallView: View {
             .padding(14)
         }
         .widgetBg(Color.otBg)
-        .widgetURL(URL(string: "optitank://radar"))
+        .widgetURL({
+            if let id = entry.data.favorites.first?.id, !id.isEmpty {
+                return URL(string: "optitank://station?id=\(id)")
+            }
+            return URL(string: "optitank://radar")
+        }())
     }
 }
 

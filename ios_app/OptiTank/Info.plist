@@ -81,5 +81,18 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+
+	<!-- Custom URL scheme for widget deep-links: optitank://station?id=X -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>optitank</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>online.optitank.app</string>
+		</dict>
+	</array>
 </dict>
 </plist>

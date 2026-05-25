@@ -279,6 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (widgetStationId) localStorage.setItem('fillz_widget_station', widgetStationId);
           else localStorage.removeItem('fillz_widget_station');
         }
+        if (dataLoaded) sendWidgetUpdate();
         return true;
       }
     } catch(err) { console.error('Erreur Load Firestore', err); }
@@ -1055,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <button class="btn-danger-corp" id="btn-logout" style="display:none; margin-bottom:16px;">Se déconnecter</button>
           <button class="btn-secondary" id="btn-reset">Réinitialiser l'application</button>
         </div>
+        <p id="profile-app-version" style="text-align:center;font-size:11px;color:var(--text-muted);opacity:0.5;margin:18px 0 8px;letter-spacing:0.3px;"></p>
       </div>
     </div>`;
 
@@ -1909,6 +1911,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function refreshProfile() {
+    const versionEl = document.getElementById('profile-app-version');
+    if (versionEl) versionEl.textContent = `v${localStorage.getItem('fillz_app_version') || '1.0.0'}`;
+
     const profNameEl = document.getElementById('prof-name');
     if (profNameEl) profNameEl.textContent = [userProfile?.name, userProfile?.surname].filter(Boolean).join(' ') || 'Utilisateur';
 
@@ -2007,16 +2012,7 @@ document.addEventListener('DOMContentLoaded', () => {
           else localStorage.removeItem('fillz_widget_station');
           syncToFirestore();
           sendWidgetUpdate();
-          // Re-render picker to show new selection
-          pickerEl.querySelectorAll('.widget-station-row').forEach(r => {
-            const sel = (r.dataset.wid === (widgetStationId || 'null'));
-            r.style.background = sel ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.04)';
-            r.style.border = `1px solid ${sel ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`;
-            const dot = r.querySelector('div:last-child');
-            dot.style.background = sel ? '#8b5cf6' : 'transparent';
-            dot.style.borderColor = sel ? '#8b5cf6' : 'rgba(255,255,255,0.2)';
-            dot.innerHTML = sel ? '<i class="ph-fill ph-check" style="font-size:11px;color:#fff;"></i>' : '';
-          });
+          refreshProfile();
         });
       });
     }
@@ -2208,6 +2204,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('chip-fuel').innerHTML = `<i class="ph ph-gas-pump"></i> ${selectedFuel} <i class="ph ph-caret-down"></i>`;
     if (dataLoaded) renderMarkers();
     setTimeout(runRadarScan, 50);
+    sendWidgetUpdate();
   });
 
   // ── Profile Edit ──────────────────────────────────────
@@ -3045,8 +3042,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
     };
     const calcDist = (lat1, lng1, lat2, lng2) => calcDistNum(lat1, lng1, lat2, lng2).toFixed(1);
+    // IQR outlier filter — same logic as the radar scan
+    const allPrices = allStations.filter(s => s.prices[fuel]).map(s => parseFloat(s.prices[fuel])).sort((a, b) => a - b);
+    let priceLowerBound = 0;
+    if (allPrices.length >= 8) {
+      const q1 = allPrices[Math.floor(allPrices.length * 0.25)];
+      const q3 = allPrices[Math.floor(allPrices.length * 0.75)];
+      priceLowerBound = q1 - 1.5 * (q3 - q1);
+    }
     const nearby = allStations
-      .filter(s => s.prices[fuel] && calcDistNum(userLat, userLng, s.lat, s.lng) <= 25)
+      .filter(s => s.prices[fuel] && parseFloat(s.prices[fuel]) >= priceLowerBound && calcDistNum(userLat, userLng, s.lat, s.lng) <= 25)
       .sort((a, b) => parseFloat(a.prices[fuel]) - parseFloat(b.prices[fuel]));
     if (!nearby.length) return;
     const top = nearby.slice(0, 4);
@@ -3054,12 +3059,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const selSt = widgetStationId ? allStations.find(s => s.id === widgetStationId) : null;
     const selectedStation = selSt && selSt.prices[fuel] ? {
       name: selSt.name, price: selSt.prices[fuel],
-      distance: calcDist(userLat, userLng, selSt.lat, selSt.lng)
+      distance: calcDist(userLat, userLng, selSt.lat, selSt.lng),
+      id: selSt.id
     } : null;
     const favStations = favorites
       .map(id => allStations.find(s => s.id === id))
       .filter(s => s && s.prices[fuel])
-      .map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) }));
+      .map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng), id: s.id }));
     window.OptiTankBridge.post({
       type: 'updateWidget',
       payload: {
@@ -3067,7 +3073,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stationName: best.name,
         distance: calcDist(userLat, userLng, best.lat, best.lng),
         fuelType: fuel,
-        stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) })),
+        stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng), id: s.id })),
         favorites: favStations,
         selectedStation: selectedStation,
         priceHistory: [],
@@ -3727,6 +3733,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const vFuel = getVehicleFuel();
     const tank = getTankSize();
     const conso = FUEL_CONSUMPTION[vFuel] || 7.5;
+    const radarSubtitle = document.querySelector('.radar-header p');
+    if (radarSubtitle) radarSubtitle.innerHTML = `Classement <strong>${vFuel}</strong> — prix du plein <strong>+</strong> coût du trajet aller-retour`;
     const rangeSelect = document.getElementById('radar-range');
     const RADIUS = rangeSelect ? parseInt(rangeSelect.value, 10) : 40;
 
@@ -3849,8 +3857,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fuelDD.querySelectorAll('.dropdown-item').forEach(it => it.addEventListener('click', () => {
     selectedFuel = it.dataset.fuel;
+    if (userProfile) { userProfile.fuelType = selectedFuel; localStorage.setItem('fillz_profile', JSON.stringify(userProfile)); debouncedSyncToFirestore(); }
     document.getElementById('chip-fuel').innerHTML = `<i class="ph ph-gas-pump"></i> ${selectedFuel} <i class="ph ph-caret-down"></i>`;
+    document.getElementById('prof-fuel-sel').value = selectedFuel;
     fuelDD.classList.remove('visible'); renderMarkers();
+    sendWidgetUpdate();
   }));
   sortDD.querySelectorAll('.dropdown-item').forEach(it => it.addEventListener('click', () => {
     sortBy = it.dataset.sort;
@@ -4855,6 +4866,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (name === 'savings') setTimeout(renderSavingsView, 100);
     if (name === 'stats') setTimeout(renderStatsView, 100);
     if (name === 'profile') setTimeout(() => {
+      refreshProfile();
       checkAndUnlockBadges();
       renderGamificationProfile();
       renderSavingsChart();
