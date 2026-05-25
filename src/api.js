@@ -5,127 +5,138 @@
  * - Project ID: tcs-benzin
  */
 
-const API_KEY = 'AIzaSyCQ8f6sXb1gYIiv5rlHKeZ2EVMzC-anzIU';
-const FIRESTORE_URL = '/api/tcs/v1/projects/gas-prices-prod/databases/(default)/documents:runQuery';
+import { db } from './firebase.js';
+import { doc, getDoc } from 'firebase/firestore';
+
+/**
+ * Récupère l'historique des prix d'une station depuis Firestore (14 derniers jours).
+ * Résultat mis en cache dans sessionStorage pour la durée de la session.
+ * Retourne un objet { "YYYY-MM-DD": { SP95: "1.789", ... }, ... } trié du plus ancien au plus récent.
+ */
+export async function fetchStationHistory(stationId, numDays = 14) {
+  const cacheKey = `fillz_hist_${stationId}`;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  // Build list of date strings: oldest → newest
+  const dates = Array.from({ length: numDays }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (numDays - 1 - i));
+    return d.toISOString().slice(0, 10);
+  });
+
+  try {
+    const snaps = await Promise.all(dates.map(date => getDoc(doc(db, 'price_history', date))));
+    const history = {};
+    snaps.forEach((snap, i) => {
+      if (snap.exists()) {
+        const prices = snap.data()[stationId];
+        if (prices) history[dates[i]] = prices;
+      }
+    });
+    sessionStorage.setItem(cacheKey, JSON.stringify(history));
+    return history;
+  } catch {
+    return {};
+  }
+}
+
+const BENZIN_API = '/api/benzin/benzinGetStationByBbox';
+const CH_BBOX = [5.9, 45.8, 10.6, 47.8];
+const FETCH_FUELS = ['SP95', 'SP98', 'DIESEL', 'GPL'];
+const FUEL_LABEL = { SP95: 'SP95', SP98: 'SP98', DIESEL: 'Diesel', GPL: 'GPL', GNC: 'GNC' };
 
 /**
  * Récupère TOUTES les stations non-supprimées depuis Firestore
  */
 export async function fetchTCSStations() {
+  const CACHE_KEY = 'fillz_stations_cache_v2';
+  const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+  const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data;
+  }
+
+  // TCS fetch est critique — si ça échoue on retourne []
+  let tcsData;
   try {
-    const response = await fetch(FIRESTORE_URL + '?key=' + API_KEY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: 'stations' }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: 'isDeleted' },
-              op: 'EQUAL',
-              value: { booleanValue: false }
-            }
-          }
-        }
-      })
-    });
-
-    if (!response.ok) throw new Error('Erreur réseau: ' + response.status);
-
-    const data = await response.json();
-    return parseFirestoreData(data);
+    tcsData = await fetchFromTCS();
   } catch (error) {
     console.error('Erreur API TCS:', error);
     return [];
   }
+
+  // Timestamps Firestore est cosmétique — jamais bloquant
+  fetchTimestamps().then(timestamps => {
+    tcsData.forEach(st => {
+      if (timestamps[st.id]) st.updatedAt = timestamps[st.id];
+    });
+  }).catch(() => {});
+
+  // Sauvegarder sans timestamps (ils seront là au prochain refresh via cache)
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: tcsData }));
+  } catch { /* quota dépassé — pas bloquant */ }
+
+  return tcsData;
 }
 
-function extractValue(field) {
-  if (!field) return null;
-  if (field.stringValue !== undefined) return field.stringValue;
-  if (field.doubleValue !== undefined) return field.doubleValue;
-  if (field.integerValue !== undefined) return Number(field.integerValue);
-  if (field.booleanValue !== undefined) return field.booleanValue;
-  if (field.timestampValue !== undefined) return field.timestampValue;
-  return null;
-}
+async function fetchFromTCS() {
+  // Fetch toutes les fuels en parallèle depuis le nouvel endpoint TCS
+  const settled = await Promise.allSettled(
+    FETCH_FUELS.map(fuel =>
+      fetch(BENZIN_API, {
+        method: 'POST',
+        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bbox: CH_BBOX, zoom: 14, pixelRatio: 1, filters: { fuel } })
+      }).then(async r => { if (!r.ok) { const t = await r.text().catch(()=>''); throw new Error('HTTP ' + r.status + ' ' + t.slice(0,200)); } return r.json(); })
+        .then(items => ({ fuel, items: Array.isArray(items) ? items : [] }))
+    )
+  );
+  const results = settled
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value);
 
-function parseFirestoreData(results) {
-  if (!results || !Array.isArray(results)) return [];
-
-  const stations = [];
-  // Mapping des noms de carburants dans Firestore -> noms d'affichage
-  const FUEL_KEYS = ['SP95', 'SP98', 'DIESEL', 'DIESEL_PREMIUM', 'GPL', 'ADBLUE', 'GNC', 'ETHANOL_85', 'HVO100', 'H2'];
-  const FUEL_DISPLAY = {
-    'SP95': 'SP95', 'SP98': 'SP98', 'DIESEL': 'Diesel', 'DIESEL_PREMIUM': 'Diesel Premium',
-    'GPL': 'GPL', 'ADBLUE': 'AdBlue', 'GNC': 'GNC', 'ETHANOL_85': 'Ethanol 85', 'HVO100': 'HVO100', 'H2': 'H2'
-  };
-
-  results.forEach(item => {
-    const doc = item.document;
-    if (!doc || !doc.fields) return;
-
-    const f = doc.fields;
-
-    // Nom & adresse (vrais champs Firestore)
-    const stationName = extractValue(f.displayName) || extractValue(f.brand) || 'Station';
-    const address = extractValue(f.formattedAddress) || '';
-    const brand = extractValue(f.brand) || '';
-
-    // Location: mapValue { fields: { lat: {doubleValue}, lng: {doubleValue} } }
-    let lat = 0, lng = 0;
-    if (f.location && f.location.mapValue && f.location.mapValue.fields) {
-      lat = extractValue(f.location.mapValue.fields.lat) || 0;
-      lng = extractValue(f.location.mapValue.fields.lng) || 0;
-    }
-    // Fallback: geoPointValue
-    if (lat === 0 && f.location && f.location.geoPointValue) {
-      lat = f.location.geoPointValue.latitude || 0;
-      lng = f.location.geoPointValue.longitude || 0;
-    }
-    if (lat === 0 && lng === 0) return;
-
-    // Prix: fuelCollection -> {SP95 -> mapValue -> fields -> displayPrice}
-    const prices = {};
-    const fuelField = f.fuelCollection || f.prices;
-    if (fuelField && fuelField.mapValue && fuelField.mapValue.fields) {
-      const fuelMap = fuelField.mapValue.fields;
-      
-      Object.keys(fuelMap).forEach(rawKey => {
-        const fuelEntry = fuelMap[rawKey];
-        if (!fuelEntry || !fuelEntry.mapValue || !fuelEntry.mapValue.fields) return;
-
-        const fuelData = fuelEntry.mapValue.fields;
-        
-        // Vérifier si ce carburant est supprimé
-        const isDeleted = extractValue(fuelData.isDeleted);
-        if (isDeleted === true) return;
-
-        const price = extractValue(fuelData.displayPrice);
-        if (price !== null && price > 0) {
-          const displayKey = FUEL_DISPLAY[rawKey] || rawKey;
-          prices[displayKey] = price.toFixed(3);
-        }
-      });
-    }
-
-    if (Object.keys(prices).length === 0) return;
-
-    const defaultPrice = prices['SP95'] || prices['Diesel'] || Object.values(prices)[0];
-
-    stations.push({
-      id: doc.name.split('/').pop(),
-      name: stationName,
-      brand: brand,
-      address: address,
-      lat: lat,
-      lng: lng,
-      prices: prices,
-      defaultDisplayPrice: 'CHF ' + defaultPrice,
-      availableFuels: Object.keys(prices)
+  // Fusionner par station ID
+  const map = {};
+  results.forEach(({ fuel, items }) => {
+    items.filter(s => !s.cluster && s.price > 0).forEach(s => {
+      const id = String(s.id);
+      if (!map[id]) {
+        const rawBrand = s.brand;
+        map[id] = {
+          id,
+          name: s.displayName || rawBrand || 'Station',
+          brand: (rawBrand && rawBrand !== 'undefined' && rawBrand !== 'null') ? rawBrand : '',
+          address: s.formattedAddress || '',
+          lat: s.latitude,
+          lng: s.longitude,
+          prices: {},
+        };
+      }
+      map[id].prices[FUEL_LABEL[fuel] || fuel] = s.price.toFixed(3);
     });
   });
 
-  console.log('TCS: ' + stations.length + ' stations chargées avec succès');
+  const stations = Object.values(map)
+    .filter(s => Object.keys(s.prices).length > 0)
+    .map(s => ({
+      ...s,
+      defaultDisplayPrice: 'CHF ' + (s.prices['SP95'] || s.prices['Diesel'] || Object.values(s.prices)[0]),
+      availableFuels: Object.keys(s.prices),
+    }));
+
+  console.log('TCS: ' + stations.length + ' stations chargées');
   return stations;
+}
+
+async function fetchTimestamps() {
+  try {
+    const snap = await getDoc(doc(db, 'stations_meta', 'snapshot'));
+    return snap.exists() ? (snap.data()?.timestamps ?? {}) : {};
+  } catch {
+    return {};
+  }
 }
