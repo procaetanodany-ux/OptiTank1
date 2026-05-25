@@ -351,6 +351,119 @@ struct OptiTankWidget: Widget {
     }
 }
 
+// MARK: - Favorites Widget Views
+
+struct FavSmallView: View {
+    let entry: WidgetEntry
+    var body: some View {
+        let fav = entry.data.favorites.first
+        ZStack(alignment: .bottom) {
+            Circle().fill(Color(red: 0.94, green: 0.27, blue: 0.27).opacity(0.12)).frame(width: 90).offset(x: 40, y: -40)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(entry.data.fuelType)
+                        .font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.45))
+                        .textCase(.uppercase).kerning(0.5)
+                    Spacer()
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27)).font(.system(size: 13))
+                }
+                Spacer()
+                if let f = fav {
+                    Text(f.price)
+                        .font(.system(size: 44, weight: .black, design: .rounded))
+                        .foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.65)
+                    Text("CHF / litre")
+                        .font(.system(size: 10, weight: .semibold)).foregroundColor(.white.opacity(0.4))
+                    Spacer()
+                    Divider().background(Color.otBorder)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(f.name).font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.75)).lineLimit(1)
+                        Text("\(f.distance) km").font(.system(size: 10, weight: .bold)).foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27))
+                    }
+                } else {
+                    Text("Aucun favori").font(.system(size: 14, weight: .semibold)).foregroundColor(.white.opacity(0.5))
+                    Text("Appuyez ❤️ sur une station").font(.system(size: 10)).foregroundColor(.white.opacity(0.3)).lineLimit(2)
+                }
+            }
+            .padding(14)
+        }
+        .widgetBg(Color.otBg)
+        .widgetURL(URL(string: "optitank://radar"))
+    }
+}
+
+struct FavMediumView: View {
+    let entry: WidgetEntry
+    var body: some View {
+        ZStack {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    Image(systemName: "heart.fill").foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27)).font(.system(size: 12))
+                    Text("Mes stations favorites · \(entry.data.fuelType)")
+                        .font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.45)).textCase(.uppercase).kerning(0.4)
+                    Spacer()
+                }
+                .padding(.bottom, 10)
+                if entry.data.favorites.isEmpty {
+                    Spacer()
+                    HStack { Spacer()
+                        VStack(spacing: 6) {
+                            Image(systemName: "heart.slash").font(.system(size: 24)).foregroundColor(.white.opacity(0.2))
+                            Text("Aucun favori").font(.system(size: 13, weight: .semibold)).foregroundColor(.white.opacity(0.4))
+                            Text("Appuyez ❤️ sur une station dans l'app").font(.system(size: 10)).foregroundColor(.white.opacity(0.25)).multilineTextAlignment(.center)
+                        }
+                        Spacer()
+                    }
+                    Spacer()
+                } else {
+                    ForEach(Array(entry.data.favorites.prefix(3).enumerated()), id: \.offset) { i, s in
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.fill").font(.system(size: 11))
+                                .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27))
+                            Text(s.name).font(.system(size: 11, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                            Spacer()
+                            Text("\(s.distance) km").font(.system(size: 10)).foregroundColor(.white.opacity(0.4))
+                            Text("CHF \(s.price)").font(.system(size: 13, weight: .bold)).monospacedDigit().foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 6)
+                        .background(Color.white.opacity(0.04)).cornerRadius(9)
+                        .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color(red: 0.94, green: 0.27, blue: 0.27).opacity(0.2), lineWidth: 1))
+                        .padding(.bottom, 4)
+                    }
+                }
+                Spacer()
+            }
+            .padding(14)
+        }
+        .widgetBg(Color.otBg)
+        .widgetURL(URL(string: "optitank://radar"))
+    }
+}
+
+struct FavWidgetEntryView: View {
+    let entry: WidgetEntry
+    @Environment(\.widgetFamily) var family
+    var body: some View {
+        switch family {
+        case .systemMedium: FavMediumView(entry: entry)
+        default:            FavSmallView(entry: entry)
+        }
+    }
+}
+
+struct OptiTankFavoritesWidget: Widget {
+    let kind = "OptiTankFavoritesWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: WidgetDataProvider()) { entry in
+            FavWidgetEntryView(entry: entry)
+        }
+        .configurationDisplayName("OptiTank — Favoris")
+        .description("Prix de vos stations favorites ❤️")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
 // MARK: - Preview
 struct OptiTankWidget_Previews: PreviewProvider {
     static var previews: some View {

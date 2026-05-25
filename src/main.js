@@ -2795,6 +2795,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+
+    // ── Charger les tokens push enregistrés ────────────────
+    async function loadPushTokens() {
+      const listEl = document.getElementById('adm-tokens-list');
+      if (!listEl) return;
+      listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">Chargement...</div>';
+      try {
+        const snap = await getDocs(collection(db, 'push_tokens'));
+        if (snap.empty) {
+          listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">Aucun appareil enregistré</div>';
+          return;
+        }
+        listEl.innerHTML = snap.docs.map(d => {
+          const data = d.data();
+          const token = data.token || d.id;
+          const short = token.length > 24 ? token.slice(0, 24) + '…' : token;
+          return `<div style="padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;margin-bottom:4px;" onclick="document.getElementById('adm-push-token').value='${token.replace(/'/g, "\\'")}';this.style.background='#ede9fe';">
+            <div style="font-size:11px;font-weight:700;color:#1e293b;">${data.platform || 'web'} — ${data.uid ? data.uid.slice(0,8) + '…' : 'anonyme'}</div>
+            <div style="font-size:10px;color:#94a3b8;font-family:monospace;margin-top:2px;">${short}</div>
+          </div>`;
+        }).join('');
+      } catch(e) {
+        listEl.innerHTML = `<div style="font-size:12px;color:#ef4444;text-align:center;padding:16px;">Erreur: ${e.message}</div>`;
+      }
+    }
+    document.getElementById('adm-load-tokens')?.addEventListener('click', loadPushTokens);
   }
 
   function applyMaintenanceBanner(show) {
@@ -3012,8 +3038,9 @@ document.addEventListener('DOMContentLoaded', () => {
     recordDailyPrices();
     populateBrandDropdown();
     renderMarkersProgressive();
-    // Update iOS widget data via native bridge
-    if (window.isOptiTankApp && window.OptiTankBridge && allStations.length > 0) {
+    // Helper: envoyer les données au widget iOS
+    function sendWidgetUpdate() {
+      if (!window.isOptiTankApp || !window.OptiTankBridge || !allStations.length) return;
       const fuel = selectedFuel || 'SP95';
       const deg2rad = d => d * Math.PI / 180;
       const calcDist = (lat1, lng1, lat2, lng2) => {
@@ -3027,23 +3054,24 @@ document.addEventListener('DOMContentLoaded', () => {
         .map(id => allStations.find(s => s.id === id))
         .filter(s => s && s.prices[fuel])
         .map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) }));
-      if (sorted.length) {
-        const top = sorted.slice(0, 4);
-        window.OptiTankBridge.post({
-          type: 'updateWidget',
-          payload: {
-            bestPrice: top[0].prices[fuel],
-            stationName: top[0].name,
-            distance: calcDist(userLat, userLng, top[0].lat, top[0].lng),
-            fuelType: fuel,
-            stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) })),
-            favorites: favStations,
-            priceHistory: [],
-            updatedAt: new Date().toISOString(),
-          }
-        });
-      }
+      if (!sorted.length) return;
+      const top = sorted.slice(0, 4);
+      window.OptiTankBridge.post({
+        type: 'updateWidget',
+        payload: {
+          bestPrice: top[0].prices[fuel],
+          stationName: top[0].name,
+          distance: calcDist(userLat, userLng, top[0].lat, top[0].lng),
+          fuelType: fuel,
+          stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) })),
+          favorites: favStations,
+          priceHistory: [],
+          updatedAt: new Date().toISOString(),
+        }
+      });
     }
+
+    sendWidgetUpdate();
   }
 
   function populateBrandDropdown() {
@@ -3270,6 +3298,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     localStorage.setItem('fillz_favs', JSON.stringify(favorites));
     syncToFirestore();
+    sendWidgetUpdate();
   });
 
   const bsheet = document.getElementById('station-bottom-sheet');

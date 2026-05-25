@@ -5,5 +5,6 @@ import SwiftUI
 struct OptiTankWidgetBundle: WidgetBundle {
     var body: some Widget {
         OptiTankWidget()
+        OptiTankFavoritesWidget()
     }
 }
