@@ -291,21 +291,32 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadFromFirestore(user);
       currentUser = user; // Set it AFTER loading is done to prevent premature syncs
       if (userProfile) debouncedSyncToFirestore();
-      // Save APNs token to Firestore when running in iOS native app
+      // Push notifications iOS — demande permission + sauvegarde token APNS
       if (window.isOptiTankApp && window.OptiTankBridge) {
-        window.addEventListener('apns-token', async (e) => {
-          const token = e.detail;
-          if (token) {
-            try {
-              await setDoc(doc(db, 'push_tokens', user.uid + '_ios'), {
-                apnsToken: token,
-                platform: 'ios',
-                updatedAt: new Date().toISOString(),
-              }, { merge: true });
-            } catch(_) {}
-          }
-        }, { once: true });
-        window.OptiTankBridge.post({ type: 'getAPNSToken' });
+        // Demande la permission push si pas encore accordée
+        window.OptiTankBridge.post({ type: 'requestNotifications' });
+
+        const saveToken = async (token) => {
+          if (!token) return;
+          try {
+            await setDoc(doc(db, 'push_tokens', user.uid + '_ios'), {
+              token,
+              apnsToken: token,
+              platform: 'ios',
+              uid: user.uid,
+              email: user.email || '',
+              updatedAt: new Date().toISOString(),
+            }, { merge: true });
+          } catch(_) {}
+        };
+
+        // Écoute l'événement token (peut arriver après un délai si permission vient d'être accordée)
+        window.addEventListener('apns-token', (e) => saveToken(e.detail));
+
+        // Vérifie aussi si un token est déjà disponible
+        setTimeout(() => {
+          window.OptiTankBridge.post({ type: 'getAPNSToken' });
+        }, 2000);
       }
     } else {
       currentUser = null;
@@ -3003,43 +3014,6 @@ document.addEventListener('DOMContentLoaded', () => {
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
-  }
-
-  // ── Admin push notification helpers ────────────────────────
-  async function loadPushTokens() {
-    const listEl = document.getElementById('adm-tokens-list');
-    if (!listEl) return;
-    listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;">Chargement...</div>';
-    try {
-      const snap = await getDocs(collection(db, 'push_tokens'));
-      if (snap.empty) {
-        listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">Aucun appareil enregistré<br><span style="font-size:11px;">Les appareils iOS apparaissent ici après la première connexion dans l\'app</span></div>';
-        return;
-      }
-      listEl.innerHTML = '';
-      snap.forEach(d => {
-        const data = d.data();
-        const token = data.fcmToken || data.apnsToken || '';
-        const div = document.createElement('div');
-        div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;';
-        div.innerHTML = `
-          <div style="width:8px;height:8px;background:#22c55e;border-radius:50%;flex-shrink:0;"></div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:700;color:#1e293b;">${data.platform === 'ios' ? '📱 iOS' : '🌐 Web'}</div>
-            <div style="font-size:10px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;">${token.slice(0, 48)}...</div>
-            <div style="font-size:10px;color:#94a3b8;">${data.updatedAt ? new Date(data.updatedAt).toLocaleDateString('fr-CH') : ''}</div>
-          </div>
-          <button style="padding:5px 10px;background:#ede9fe;border:1px solid #ddd6fe;border-radius:6px;font-size:11px;font-weight:700;color:#5b21b6;cursor:pointer;flex-shrink:0;">Utiliser</button>
-        `;
-        div.querySelector('button').onclick = () => {
-          const t = document.getElementById('adm-push-token');
-          if (t) t.value = token;
-        };
-        listEl.appendChild(div);
-      });
-    } catch(e) {
-      listEl.innerHTML = `<div style="font-size:12px;color:#ef4444;">Erreur: ${e.message}</div>`;
-    }
   }
 
   // ── Admin auto-open after password validated in admin.html ──
