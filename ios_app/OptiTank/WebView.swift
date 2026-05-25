@@ -86,7 +86,7 @@ struct WebView: UIViewRepresentable {
             case "requestNotifications":
                 NotificationManager.shared.requestPermission()
             case "getAPNSToken":
-                let token = UserDefaults.standard.string(forKey: "fcm_device_token") ?? ""
+                let token = UserDefaults.standard.string(forKey: "apns_device_token") ?? ""
                 model.webView?.evaluateJavaScript("window.__apnsToken = '\(token)'; window.dispatchEvent(new CustomEvent('apns-token', {detail: '\(token)'}));", completionHandler: nil)
             case "navigate":
                 if let urlString = body["url"] as? String { model.navigate(to: urlString) }
@@ -114,11 +114,7 @@ struct WebView: UIViewRepresentable {
             if let urlString = notification.object as? String { model.navigate(to: urlString) }
         }
 
-        @objc func handleFCMToken(_ notification: Notification) {
-            guard let token = notification.object as? String else { return }
-            let js = "window.__apnsToken = '\(token)'; window.dispatchEvent(new CustomEvent('apns-token', {detail: '\(token)'}));"
-            model.webView?.evaluateJavaScript(js, completionHandler: nil)
-        }
+
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(model) }
@@ -157,13 +153,6 @@ struct WebView: UIViewRepresentable {
             context.coordinator,
             selector: #selector(Coordinator.handleNavigate(_:)),
             name: .navigateToURL,
-            object: nil
-        )
-
-        NotificationCenter.default.addObserver(
-            context.coordinator,
-            selector: #selector(Coordinator.handleFCMToken(_:)),
-            name: .fcmTokenReceived,
             object: nil
         )
 
