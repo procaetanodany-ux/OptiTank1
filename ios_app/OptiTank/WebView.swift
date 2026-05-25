@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import WidgetKit
 
 // Observable state shared between WebView and ContentView
 class WebViewModel: ObservableObject {
@@ -81,6 +82,17 @@ struct WebView: UIViewRepresentable {
                 model.webView?.evaluateJavaScript("window.__apnsToken = '\(token)'; window.dispatchEvent(new CustomEvent('apns-token', {detail: '\(token)'}));", completionHandler: nil)
             case "navigate":
                 if let urlString = body["url"] as? String { model.navigate(to: urlString) }
+            case "updateWidget":
+                if let payload = body["payload"] as? [String: Any],
+                   let json = try? JSONSerialization.data(withJSONObject: payload),
+                   let jsonStr = String(data: json, encoding: .utf8),
+                   let defaults = UserDefaults(suiteName: "group.online.optitank.app") {
+                    defaults.set(jsonStr, forKey: "widget_best_price")
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            case "saveApnsToken":
+                // Token already saved in AppDelegate; this is a no-op for bridge compatibility
+                break
             default:
                 break
             }

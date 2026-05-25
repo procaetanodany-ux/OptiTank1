@@ -7,7 +7,7 @@ import { fetchTCSStations, fetchStationHistory } from './api.js';
 import { FUEL_CONSUMPTION } from './vehicles.js';
 import { auth, db, storage } from './firebase.js';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup } from "firebase/auth";
-import { doc, getDoc, setDoc, addDoc, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc, addDoc, collection, getDocs } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import Chart from 'chart.js/auto';
 import { getBrands, getModels, getYearRange } from './vehicleAPI.js';
@@ -284,6 +284,22 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadFromFirestore(user);
       currentUser = user; // Set it AFTER loading is done to prevent premature syncs
       if (userProfile) debouncedSyncToFirestore();
+      // Save APNs token to Firestore when running in iOS native app
+      if (window.isOptiTankApp && window.OptiTankBridge) {
+        window.addEventListener('apns-token', async (e) => {
+          const token = e.detail;
+          if (token) {
+            try {
+              await setDoc(doc(db, 'push_tokens', user.uid + '_ios'), {
+                apnsToken: token,
+                platform: 'ios',
+                updatedAt: new Date().toISOString(),
+              }, { merge: true });
+            } catch(_) {}
+          }
+        }, { once: true });
+        window.OptiTankBridge.post({ type: 'getAPNSToken' });
+      }
     } else {
       currentUser = null;
     }
@@ -2354,6 +2370,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="adm-nav-item" data-section="brands"><span>🏪</span> Marques</div>
             <div class="adm-nav-item" data-section="controls"><span>🛠</span> Contrôles</div>
             <div class="adm-nav-item" data-section="settings"><span>⚙️</span> Paramètres</div>
+            <div class="adm-nav-item" data-section="push"><span>📱</span> Notifications</div>
             <div class="adm-nav-item" data-section="system"><span>ℹ️</span> Système</div>
           </div>
           <div style="padding:16px 20px;border-top:1px solid #f1f5f9;">
@@ -2566,6 +2583,48 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
 
+          <!-- Push Notifications -->
+          <div class="adm-section" id="adm-sec-push">
+            <div style="margin-bottom:24px;">
+              <div style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">Push Notifications</div>
+              <div style="font-size:13px;color:#94a3b8;margin-top:3px;">Envoyer une notification test aux appareils enregistrés</div>
+            </div>
+            <div class="adm-col2">
+              <div>
+                <div class="adm-card">
+                  <div class="adm-card-title">📱 Appareils enregistrés</div>
+                  <div id="adm-tokens-list" style="min-height:60px;display:flex;flex-direction:column;gap:6px;">
+                    <div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">Cliquez sur "Actualiser" pour voir les appareils</div>
+                  </div>
+                  <button id="adm-load-tokens" class="adm-btn" style="background:#ede9fe;border-color:#ddd6fe;color:#5b21b6;margin-top:12px;">🔄 Actualiser la liste</button>
+                </div>
+              </div>
+              <div>
+                <div class="adm-card">
+                  <div class="adm-card-title">✍️ Composer la notification</div>
+                  <label style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:5px;">Token FCM</label>
+                  <input id="adm-push-token" type="text" placeholder="Coller un token FCM ici..."
+                    style="width:100%;box-sizing:border-box;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;color:#1e293b;margin-bottom:10px;font-family:monospace;">
+                  <label style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:5px;">Titre</label>
+                  <input id="adm-push-title" type="text" value="🔔 Test OptiTank"
+                    style="width:100%;box-sizing:border-box;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;margin-bottom:10px;">
+                  <label style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:5px;">Corps</label>
+                  <input id="adm-push-body" type="text" value="SP95 à CHF 1.720 près de vous 🇨🇭"
+                    style="width:100%;box-sizing:border-box;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;margin-bottom:10px;">
+                  <label style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:5px;">URL (optionnel)</label>
+                  <input id="adm-push-url" type="text" placeholder="https://optitank.online"
+                    style="width:100%;box-sizing:border-box;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;margin-bottom:14px;">
+                  <button id="adm-send-push" style="width:100%;padding:13px;background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;border-radius:11px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">
+                    🚀 Envoyer via Cloud Function
+                  </button>
+                  <button id="adm-test-browser-push" style="width:100%;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:11px;color:#166534;font-size:13px;font-weight:700;cursor:pointer;">
+                    🔔 Test navigateur (local)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div><!-- /adm-main -->
       </div><!-- /adm-body -->`;
 
@@ -2582,6 +2641,7 @@ document.addEventListener('DOMContentLoaded', () => {
           sec.classList.add('active');
           // Init chart lazily when chart section becomes visible
           if (item.dataset.section === 'chart') initAdmChart();
+          if (item.dataset.section === 'push') loadPushTokens();
         }
       });
     });
@@ -2631,6 +2691,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('admin-close').onclick = () => overlay.remove();
+
+    overlay.getElementById?.('adm-load-tokens')?.addEventListener('click', loadPushTokens);
+    document.getElementById('adm-load-tokens')?.addEventListener('click', loadPushTokens);
+
+    document.getElementById('adm-test-browser-push')?.addEventListener('click', async () => {
+      const title = document.getElementById('adm-push-title')?.value || '🔔 Test OptiTank';
+      const body  = document.getElementById('adm-push-body')?.value  || 'Notification de test';
+      const perm  = await Notification.requestPermission();
+      if (perm === 'granted') {
+        const reg = await navigator.serviceWorker?.ready;
+        if (reg) reg.showNotification(title, { body, icon: '/icon-192.png', badge: '/icon-192.png', vibrate: [100, 50, 100] });
+        else new Notification(title, { body });
+        showAdminToast('✓ Notification affichée sur ce navigateur', '#22c55e', '#052e16');
+      } else {
+        showAdminToast('⚠ Permission refusée par ce navigateur', '#f59e0b', '#1c1917');
+      }
+    });
+
+    document.getElementById('adm-send-push')?.addEventListener('click', async () => {
+      const token = document.getElementById('adm-push-token')?.value.trim();
+      const title = document.getElementById('adm-push-title')?.value.trim();
+      const body  = document.getElementById('adm-push-body')?.value.trim();
+      const url   = document.getElementById('adm-push-url')?.value.trim();
+      if (!token) { showAdminToast('⚠ Entrez un token FCM', '#f59e0b', '#1c1917'); return; }
+      if (!title) { showAdminToast('⚠ Entrez un titre', '#f59e0b', '#1c1917'); return; }
+      showAdminToast('📤 Envoi en cours...', '#8b5cf6', '#fff');
+      try {
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const fn = httpsCallable(getFunctions(), 'sendTestPush');
+        await fn({ token, title, body, url });
+        showAdminToast('✓ Notification envoyée avec succès', '#22c55e', '#052e16');
+      } catch(e) {
+        showAdminToast('✗ Erreur: ' + (e.message || e), '#ef4444', '#fff');
+      }
+    });
 
     document.getElementById('adm-clear-cache').onclick = () => {
       localStorage.removeItem('fillz_stations_cache_v2');
@@ -2818,6 +2913,43 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => t.remove(), 3000);
   }
 
+  // ── Admin push notification helpers ────────────────────────
+  async function loadPushTokens() {
+    const listEl = document.getElementById('adm-tokens-list');
+    if (!listEl) return;
+    listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;">Chargement...</div>';
+    try {
+      const snap = await getDocs(collection(db, 'push_tokens'));
+      if (snap.empty) {
+        listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">Aucun appareil enregistré<br><span style="font-size:11px;">Les appareils iOS apparaissent ici après la première connexion dans l\'app</span></div>';
+        return;
+      }
+      listEl.innerHTML = '';
+      snap.forEach(d => {
+        const data = d.data();
+        const token = data.fcmToken || data.apnsToken || '';
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;';
+        div.innerHTML = `
+          <div style="width:8px;height:8px;background:#22c55e;border-radius:50%;flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:700;color:#1e293b;">${data.platform === 'ios' ? '📱 iOS' : '🌐 Web'}</div>
+            <div style="font-size:10px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;">${token.slice(0, 48)}...</div>
+            <div style="font-size:10px;color:#94a3b8;">${data.updatedAt ? new Date(data.updatedAt).toLocaleDateString('fr-CH') : ''}</div>
+          </div>
+          <button style="padding:5px 10px;background:#ede9fe;border:1px solid #ddd6fe;border-radius:6px;font-size:11px;font-weight:700;color:#5b21b6;cursor:pointer;flex-shrink:0;">Utiliser</button>
+        `;
+        div.querySelector('button').onclick = () => {
+          const t = document.getElementById('adm-push-token');
+          if (t) t.value = token;
+        };
+        listEl.appendChild(div);
+      });
+    } catch(e) {
+      listEl.innerHTML = `<div style="font-size:12px;color:#ef4444;">Erreur: ${e.message}</div>`;
+    }
+  }
+
   // ── Admin auto-open after password validated in admin.html ──
   if (_ADMIN_ROUTE) { sessionStorage.removeItem('_admin_auth'); showAdminPanel(); }
 
@@ -2880,6 +3012,27 @@ document.addEventListener('DOMContentLoaded', () => {
     recordDailyPrices();
     populateBrandDropdown();
     renderMarkersProgressive();
+    // Update iOS widget data via native bridge
+    if (window.isOptiTankApp && window.OptiTankBridge && allStations.length > 0) {
+      const fuel = selectedFuel || 'SP95';
+      const sorted = allStations.filter(s => s.prices[fuel])
+        .sort((a, b) => parseFloat(a.prices[fuel]) - parseFloat(b.prices[fuel]));
+      if (sorted.length) {
+        const top = sorted.slice(0, 4);
+        window.OptiTankBridge.post({
+          type: 'updateWidget',
+          payload: {
+            bestPrice: top[0].prices[fuel],
+            stationName: top[0].name,
+            distance: '—',
+            fuelType: fuel,
+            stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: '—' })),
+            priceHistory: [],
+            updatedAt: new Date().toISOString(),
+          }
+        });
+      }
+    }
   }
 
   function populateBrandDropdown() {

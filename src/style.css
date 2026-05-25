@@ -265,6 +265,10 @@ body {
   align-items: center;
   padding: 20px;
   text-align: center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .radar-header {
