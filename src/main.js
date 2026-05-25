@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const refuels = JSON.parse(localStorage.getItem('fillz_refuels') || '[]');
       const alerts = JSON.parse(localStorage.getItem('fillz_alerts') || '[]');
       const comm = JSON.parse(localStorage.getItem('fillz_commute') || 'null');
-      const hist = JSON.parse(localStorage.getItem('fillz_price_history') || '{}');
+      // history est exclu — trop volumineux (> 1 Mo), dépasse la limite Firestore
       await setDoc(doc(db, "users", currentUser.uid), {
         profile: userProfile,
         favorites: favorites,
@@ -237,9 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
         refuels: refuels,
         alerts: alerts,
         commute: comm,
-        history: hist
       }, { merge: true });
-    } catch(err) { console.error('Erreur Sync Firestore', err); }
+    } catch(err) {
+      console.error('Erreur Sync Firestore', err);
+      showToast('Erreur sauvegarde cloud: ' + err.code, 'error');
+    }
   }
 
   function debouncedSyncToFirestore() {
@@ -271,9 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.commute) {
           commute = data.commute;
           localStorage.setItem('fillz_commute', JSON.stringify(commute));
-        }
-        if (data.history) {
-          localStorage.setItem('fillz_price_history', JSON.stringify(data.history));
         }
         if (data.widgetStationId !== undefined) {
           widgetStationId = data.widgetStationId;
