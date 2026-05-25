@@ -17,8 +17,14 @@ struct WidgetData: Codable {
     let fuelType: String
     let stations: [WidgetStation]
     let favorites: [WidgetStation]
+    let selectedStation: WidgetStation?
     let priceHistory: [Double]
     let updatedAt: String
+
+    // Station à afficher en priorité : sélection manuelle > sinon meilleur prix 25km
+    var displayStation: WidgetStation {
+        selectedStation ?? WidgetStation(name: stationName, price: bestPrice, distance: distance)
+    }
 
     static let placeholder = WidgetData(
         bestPrice: "1.720",
@@ -34,6 +40,7 @@ struct WidgetData: Codable {
         favorites: [
             WidgetStation(name: "Shell Crissier", price: "1.880", distance: "4.7"),
         ],
+        selectedStation: nil,
         priceHistory: [1.95, 1.98, 1.84, 1.78, 1.75, 1.72, 1.720],
         updatedAt: ISO8601DateFormatter().string(from: .now)
     )

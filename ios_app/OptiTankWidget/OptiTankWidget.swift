@@ -69,14 +69,9 @@ struct SparklineView: View {
 // MARK: - Small (2×2)
 struct SmallWidgetView: View {
     let entry: WidgetEntry
-    private var displayStation: (name: String, price: String, distance: String, isFav: Bool) {
-        if let fav = entry.data.favorites.first {
-            return (fav.name, fav.price, fav.distance, true)
-        }
-        return (entry.data.stationName, entry.data.bestPrice, entry.data.distance, false)
-    }
     var body: some View {
-        let s = displayStation
+        let s = entry.data.displayStation
+        let isSelected = entry.data.selectedStation != nil
         ZStack(alignment: .bottom) {
             Circle().fill(Color.otPurple.opacity(0.15)).frame(width: 90).offset(x: 40, y: -40)
             VStack(alignment: .leading, spacing: 4) {
@@ -85,8 +80,8 @@ struct SmallWidgetView: View {
                         .font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.45))
                         .textCase(.uppercase).kerning(0.5)
                     Spacer()
-                    Image(systemName: s.isFav ? "heart.fill" : "fuelpump.fill")
-                        .foregroundColor(s.isFav ? Color(red: 0.94, green: 0.27, blue: 0.27) : Color.otPurple)
+                    Image(systemName: isSelected ? "heart.fill" : "fuelpump.fill")
+                        .foregroundColor(isSelected ? Color(red: 0.94, green: 0.27, blue: 0.27) : Color.otPurple)
                         .font(.system(size: 13))
                 }
                 Spacer()
@@ -102,7 +97,7 @@ struct SmallWidgetView: View {
                         Text(s.name)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white.opacity(0.75)).lineLimit(1)
-                        Text("\(s.distance) km")
+                        Text("\(s.distance) km · \(isSelected ? "favori" : "25km")")
                             .font(.system(size: 10, weight: .bold)).foregroundColor(Color.otTeal)
                     }
                     Spacer()

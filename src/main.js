@@ -187,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedFuel = userProfile?.fuelType || 'SP95';
   let selectedBrandFilter = 'Toutes';
   let favorites = JSON.parse(localStorage.getItem('fillz_favs') || '[]');
+  let widgetStationId = localStorage.getItem('fillz_widget_station') || null;
   let priceHistory = null;
   let dataLoaded = false;
   let isFirstVisit = !userProfile;
@@ -232,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await setDoc(doc(db, "users", currentUser.uid), {
         profile: userProfile,
         favorites: favorites,
+        widgetStationId: widgetStationId || null,
         refuels: refuels,
         alerts: alerts,
         commute: comm,
@@ -272,6 +274,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (data.history) {
           localStorage.setItem('fillz_price_history', JSON.stringify(data.history));
+        }
+        if (data.widgetStationId !== undefined) {
+          widgetStationId = data.widgetStationId;
+          if (widgetStationId) localStorage.setItem('fillz_widget_station', widgetStationId);
+          else localStorage.removeItem('fillz_widget_station');
         }
         return true;
       }
@@ -1029,7 +1036,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <div class="section-title">Vos Favoris</div>
         <div id="profile-favorites-list" style="display:flex; flex-direction:column; gap:6px; margin-top:6px;"></div>
-        
+
+        <div class="section-title" style="margin-top:24px;">Station dans le widget</div>
+        <p style="font-size:12px;color:var(--text-muted);margin:4px 0 10px;">Choisissez quelle station afficher dans votre widget iOS. Si aucune station n'est sélectionnée, le widget affiche le meilleur prix dans un rayon de 25 km.</p>
+        <div id="widget-station-picker" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;"></div>
+
         <div style="margin-top:30px; padding:0 10px;">
           <button class="btn-danger-corp" id="btn-logout" style="display:none; margin-bottom:16px;">Se déconnecter</button>
           <button class="btn-secondary" id="btn-reset">Réinitialiser l'application</button>
@@ -1945,6 +1956,61 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
+    // Widget station picker
+    const pickerEl = document.getElementById('widget-station-picker');
+    if (pickerEl) {
+      const deg2rad = d => d * Math.PI / 180;
+      const calcDist = (lat1, lng1, lat2, lng2) => {
+        const dLat = deg2rad(lat2-lat1), dLng = deg2rad(lng2-lng1);
+        const a = Math.sin(dLat/2)**2 + Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*Math.sin(dLng/2)**2;
+        return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+      };
+      const makeRow = (id, name, price, dist, icon) => {
+        const sel = widgetStationId === id;
+        return `<div class="widget-station-row${sel ? ' selected' : ''}" data-wid="${id}"
+          style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;cursor:pointer;
+          background:${sel ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.04)'};
+          border:1px solid ${sel ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'};">
+          <span style="font-size:18px;">${icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${dist !== null ? dist.toFixed(1)+' km · ' : ''}CHF ${price}</div>
+          </div>
+          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${sel ? '#8b5cf6' : 'rgba(255,255,255,0.2)'};
+            background:${sel ? '#8b5cf6' : 'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            ${sel ? '<i class="ph-fill ph-check" style="font-size:11px;color:#fff;"></i>' : ''}
+          </div>
+        </div>`;
+      };
+      let rows = makeRow(null, 'Meilleur prix 25 km (auto)', '—', null, '🎯');
+      favorites.forEach(fid => {
+        const st = allStations.find(s => s.id === fid);
+        if (!st) return;
+        const d = calcDist(userLat, userLng, st.lat, st.lng);
+        rows += makeRow(st.id, st.name, parseFloat(st.prices[selectedFuel]||0).toFixed(3), d, '❤️');
+      });
+      pickerEl.innerHTML = rows;
+      pickerEl.querySelectorAll('.widget-station-row').forEach(row => {
+        row.addEventListener('click', () => {
+          widgetStationId = row.dataset.wid === 'null' ? null : row.dataset.wid;
+          if (widgetStationId) localStorage.setItem('fillz_widget_station', widgetStationId);
+          else localStorage.removeItem('fillz_widget_station');
+          syncToFirestore();
+          sendWidgetUpdate();
+          // Re-render picker to show new selection
+          pickerEl.querySelectorAll('.widget-station-row').forEach(r => {
+            const sel = (r.dataset.wid === (widgetStationId || 'null'));
+            r.style.background = sel ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.04)';
+            r.style.border = `1px solid ${sel ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`;
+            const dot = r.querySelector('div:last-child');
+            dot.style.background = sel ? '#8b5cf6' : 'transparent';
+            dot.style.borderColor = sel ? '#8b5cf6' : 'rgba(255,255,255,0.2)';
+            dot.innerHTML = sel ? '<i class="ph-fill ph-check" style="font-size:11px;color:#fff;"></i>' : '';
+          });
+        });
+      });
+    }
+
     renderGamificationProfile();
     const profView = document.getElementById('view-profile');
     if (profView && profView.style.display !== 'none' && profView.offsetParent !== null) {
@@ -3043,28 +3109,45 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!window.isOptiTankApp || !window.OptiTankBridge || !allStations.length) return;
       const fuel = selectedFuel || 'SP95';
       const deg2rad = d => d * Math.PI / 180;
-      const calcDist = (lat1, lng1, lat2, lng2) => {
-        const dLat = deg2rad(lat2 - lat1), dLng = deg2rad(lng2 - lng1);
-        const a = Math.sin(dLat/2)**2 + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLng/2)**2;
-        return (6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+      const calcDistNum = (lat1, lng1, lat2, lng2) => {
+        const dLat = deg2rad(lat2-lat1), dLng = deg2rad(lng2-lng1);
+        const a = Math.sin(dLat/2)**2 + Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*Math.sin(dLng/2)**2;
+        return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
       };
-      const sorted = allStations.filter(s => s.prices[fuel])
+      const calcDist = (lat1, lng1, lat2, lng2) => calcDistNum(lat1, lng1, lat2, lng2).toFixed(1);
+
+      // Meilleur prix dans rayon 25 km
+      const nearby = allStations
+        .filter(s => s.prices[fuel] && calcDistNum(userLat, userLng, s.lat, s.lng) <= 25)
         .sort((a, b) => parseFloat(a.prices[fuel]) - parseFloat(b.prices[fuel]));
+      if (!nearby.length) return;
+      const top = nearby.slice(0, 4);
+      const best = top[0];
+
+      // Station sélectionnée dans les paramètres
+      const selSt = widgetStationId ? allStations.find(s => s.id === widgetStationId) : null;
+      const selectedStation = selSt && selSt.prices[fuel] ? {
+        name: selSt.name,
+        price: selSt.prices[fuel],
+        distance: calcDist(userLat, userLng, selSt.lat, selSt.lng)
+      } : null;
+
+      // Favoris avec prix
       const favStations = favorites
         .map(id => allStations.find(s => s.id === id))
         .filter(s => s && s.prices[fuel])
         .map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) }));
-      if (!sorted.length) return;
-      const top = sorted.slice(0, 4);
+
       window.OptiTankBridge.post({
         type: 'updateWidget',
         payload: {
-          bestPrice: top[0].prices[fuel],
-          stationName: top[0].name,
-          distance: calcDist(userLat, userLng, top[0].lat, top[0].lng),
+          bestPrice: best.prices[fuel],
+          stationName: best.name,
+          distance: calcDist(userLat, userLng, best.lat, best.lng),
           fuelType: fuel,
           stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) })),
           favorites: favStations,
+          selectedStation: selectedStation,
           priceHistory: [],
           updatedAt: new Date().toISOString(),
         }
