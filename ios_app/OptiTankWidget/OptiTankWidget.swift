@@ -69,7 +69,14 @@ struct SparklineView: View {
 // MARK: - Small (2×2)
 struct SmallWidgetView: View {
     let entry: WidgetEntry
+    private var displayStation: (name: String, price: String, distance: String, isFav: Bool) {
+        if let fav = entry.data.favorites.first {
+            return (fav.name, fav.price, fav.distance, true)
+        }
+        return (entry.data.stationName, entry.data.bestPrice, entry.data.distance, false)
+    }
     var body: some View {
+        let s = displayStation
         ZStack(alignment: .bottom) {
             Circle().fill(Color.otPurple.opacity(0.15)).frame(width: 90).offset(x: 40, y: -40)
             VStack(alignment: .leading, spacing: 4) {
@@ -78,11 +85,12 @@ struct SmallWidgetView: View {
                         .font(.system(size: 10, weight: .bold)).foregroundColor(.white.opacity(0.45))
                         .textCase(.uppercase).kerning(0.5)
                     Spacer()
-                    Image(systemName: "fuelpump.fill")
-                        .foregroundColor(Color.otPurple).font(.system(size: 13))
+                    Image(systemName: s.isFav ? "heart.fill" : "fuelpump.fill")
+                        .foregroundColor(s.isFav ? Color(red: 0.94, green: 0.27, blue: 0.27) : Color.otPurple)
+                        .font(.system(size: 13))
                 }
                 Spacer()
-                Text(entry.data.bestPrice)
+                Text(s.price)
                     .font(.system(size: 44, weight: .black, design: .rounded))
                     .foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.65)
                 Text("CHF / litre")
@@ -91,10 +99,10 @@ struct SmallWidgetView: View {
                 Divider().background(Color.otBorder)
                 HStack {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(entry.data.stationName)
+                        Text(s.name)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white.opacity(0.75)).lineLimit(1)
-                        Text("\(entry.data.distance) km")
+                        Text("\(s.distance) km")
                             .font(.system(size: 10, weight: .bold)).foregroundColor(Color.otTeal)
                     }
                     Spacer()
@@ -140,12 +148,21 @@ struct MediumWidgetView: View {
 
                 Rectangle().fill(Color.otBorder).frame(width: 1).padding(.vertical, 12)
 
-                // Right — station list
+                // Right — favoris si présents, sinon meilleures stations
+                let rightList = entry.data.favorites.isEmpty ? entry.data.stations : entry.data.favorites
+                let rightTitle = entry.data.favorites.isEmpty ? "Proches" : "Favoris"
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Proches")
-                        .font(.system(size: 9, weight: .bold)).foregroundColor(.white.opacity(0.4))
-                        .textCase(.uppercase).kerning(0.4).padding(.bottom, 6)
-                    ForEach(Array(entry.data.stations.prefix(3).enumerated()), id: \.offset) { i, s in
+                    HStack(spacing: 4) {
+                        if !entry.data.favorites.isEmpty {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 8)).foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27))
+                        }
+                        Text(rightTitle)
+                            .font(.system(size: 9, weight: .bold)).foregroundColor(.white.opacity(0.4))
+                            .textCase(.uppercase).kerning(0.4)
+                    }
+                    .padding(.bottom, 6)
+                    ForEach(Array(rightList.prefix(3).enumerated()), id: \.offset) { i, s in
                         HStack(spacing: 6) {
                             Circle()
                                 .fill(i == 0 ? Color.otGreen : i == 1 ? Color.otTeal : Color.otPurple.opacity(0.7))
@@ -221,9 +238,34 @@ struct LargeWidgetView: View {
                 .padding(10)
                 .background(Color.otBgCard).cornerRadius(12)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.otBorder, lineWidth: 1))
-                // Station list
+                // Favoris (si présents)
+                if !entry.data.favorites.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "heart.fill").font(.system(size: 9))
+                                .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27))
+                            Text("Mes favoris").font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white.opacity(0.4)).textCase(.uppercase)
+                        }
+                        ForEach(Array(entry.data.favorites.prefix(2).enumerated()), id: \.offset) { i, s in
+                            HStack(spacing: 8) {
+                                Image(systemName: "heart.fill").font(.system(size: 11))
+                                    .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27))
+                                Text(s.name).font(.system(size: 11, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                                Spacer()
+                                Text("\(s.distance) km").font(.system(size: 10)).foregroundColor(.white.opacity(0.4))
+                                Text("CHF \(s.price)").font(.system(size: 12, weight: .bold)).monospacedDigit()
+                                    .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.27).opacity(0.9))
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .background(Color(red: 0.94, green: 0.27, blue: 0.27).opacity(0.06)).cornerRadius(9)
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color(red: 0.94, green: 0.27, blue: 0.27).opacity(0.15), lineWidth: 1))
+                        }
+                    }
+                }
+                // Meilleures stations
                 VStack(spacing: 4) {
-                    ForEach(Array(entry.data.stations.prefix(4).enumerated()), id: \.offset) { i, s in
+                    ForEach(Array(entry.data.stations.prefix(entry.data.favorites.isEmpty ? 4 : 2).enumerated()), id: \.offset) { i, s in
                         HStack(spacing: 8) {
                             ZStack {
                                 Circle().fill(i == 0 ? Color.otGreen : i == 1 ? Color.otTeal.opacity(0.8) : Color.otPurple.opacity(0.5))

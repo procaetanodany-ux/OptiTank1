@@ -3015,8 +3015,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update iOS widget data via native bridge
     if (window.isOptiTankApp && window.OptiTankBridge && allStations.length > 0) {
       const fuel = selectedFuel || 'SP95';
+      const deg2rad = d => d * Math.PI / 180;
+      const calcDist = (lat1, lng1, lat2, lng2) => {
+        const dLat = deg2rad(lat2 - lat1), dLng = deg2rad(lng2 - lng1);
+        const a = Math.sin(dLat/2)**2 + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLng/2)**2;
+        return (6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+      };
       const sorted = allStations.filter(s => s.prices[fuel])
         .sort((a, b) => parseFloat(a.prices[fuel]) - parseFloat(b.prices[fuel]));
+      const favStations = favorites
+        .map(id => allStations.find(s => s.id === id))
+        .filter(s => s && s.prices[fuel])
+        .map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) }));
       if (sorted.length) {
         const top = sorted.slice(0, 4);
         window.OptiTankBridge.post({
@@ -3024,9 +3034,10 @@ document.addEventListener('DOMContentLoaded', () => {
           payload: {
             bestPrice: top[0].prices[fuel],
             stationName: top[0].name,
-            distance: '—',
+            distance: calcDist(userLat, userLng, top[0].lat, top[0].lng),
             fuelType: fuel,
-            stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: '—' })),
+            stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) })),
+            favorites: favStations,
             priceHistory: [],
             updatedAt: new Date().toISOString(),
           }

@@ -16,6 +16,7 @@ struct WidgetData: Codable {
     let distance: String
     let fuelType: String
     let stations: [WidgetStation]
+    let favorites: [WidgetStation]
     let priceHistory: [Double]
     let updatedAt: String
 
@@ -29,6 +30,9 @@ struct WidgetData: Codable {
             WidgetStation(name: "BP Lausanne-Nord", price: "1.759", distance: "3.1"),
             WidgetStation(name: "Shell Crissier",   price: "1.880", distance: "4.7"),
             WidgetStation(name: "Total Écluse",     price: "1.970", distance: "5.2"),
+        ],
+        favorites: [
+            WidgetStation(name: "Shell Crissier", price: "1.880", distance: "4.7"),
         ],
         priceHistory: [1.95, 1.98, 1.84, 1.78, 1.75, 1.72, 1.720],
         updatedAt: ISO8601DateFormatter().string(from: .now)
