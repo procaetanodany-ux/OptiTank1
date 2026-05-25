@@ -3061,6 +3061,48 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('leaflet-map').className = 'theme-' + name;
   }
 
+  // ── Widget iOS — mise à jour des données ───────────────
+  function sendWidgetUpdate() {
+    if (!window.isOptiTankApp || !window.OptiTankBridge || !allStations.length) return;
+    const fuel = selectedFuel || 'SP95';
+    const deg2rad = d => d * Math.PI / 180;
+    const calcDistNum = (lat1, lng1, lat2, lng2) => {
+      const dLat = deg2rad(lat2-lat1), dLng = deg2rad(lng2-lng1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*Math.sin(dLng/2)**2;
+      return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    };
+    const calcDist = (lat1, lng1, lat2, lng2) => calcDistNum(lat1, lng1, lat2, lng2).toFixed(1);
+    const nearby = allStations
+      .filter(s => s.prices[fuel] && calcDistNum(userLat, userLng, s.lat, s.lng) <= 25)
+      .sort((a, b) => parseFloat(a.prices[fuel]) - parseFloat(b.prices[fuel]));
+    if (!nearby.length) return;
+    const top = nearby.slice(0, 4);
+    const best = top[0];
+    const selSt = widgetStationId ? allStations.find(s => s.id === widgetStationId) : null;
+    const selectedStation = selSt && selSt.prices[fuel] ? {
+      name: selSt.name, price: selSt.prices[fuel],
+      distance: calcDist(userLat, userLng, selSt.lat, selSt.lng)
+    } : null;
+    const favStations = favorites
+      .map(id => allStations.find(s => s.id === id))
+      .filter(s => s && s.prices[fuel])
+      .map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) }));
+    window.OptiTankBridge.post({
+      type: 'updateWidget',
+      payload: {
+        bestPrice: best.prices[fuel],
+        stationName: best.name,
+        distance: calcDist(userLat, userLng, best.lat, best.lng),
+        fuelType: fuel,
+        stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) })),
+        favorites: favStations,
+        selectedStation: selectedStation,
+        priceHistory: [],
+        updatedAt: new Date().toISOString(),
+      }
+    });
+  }
+
   // ── MAP DATA ───────────────────────────────────────────
   let backgroundLoadTimer = null;
 
@@ -3100,60 +3142,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     dataLoaded = true;
-    // Record daily price snapshot
     recordDailyPrices();
     populateBrandDropdown();
     renderMarkersProgressive();
-    // Helper: envoyer les données au widget iOS
-    function sendWidgetUpdate() {
-      if (!window.isOptiTankApp || !window.OptiTankBridge || !allStations.length) return;
-      const fuel = selectedFuel || 'SP95';
-      const deg2rad = d => d * Math.PI / 180;
-      const calcDistNum = (lat1, lng1, lat2, lng2) => {
-        const dLat = deg2rad(lat2-lat1), dLng = deg2rad(lng2-lng1);
-        const a = Math.sin(dLat/2)**2 + Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*Math.sin(dLng/2)**2;
-        return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-      };
-      const calcDist = (lat1, lng1, lat2, lng2) => calcDistNum(lat1, lng1, lat2, lng2).toFixed(1);
-
-      // Meilleur prix dans rayon 25 km
-      const nearby = allStations
-        .filter(s => s.prices[fuel] && calcDistNum(userLat, userLng, s.lat, s.lng) <= 25)
-        .sort((a, b) => parseFloat(a.prices[fuel]) - parseFloat(b.prices[fuel]));
-      if (!nearby.length) return;
-      const top = nearby.slice(0, 4);
-      const best = top[0];
-
-      // Station sélectionnée dans les paramètres
-      const selSt = widgetStationId ? allStations.find(s => s.id === widgetStationId) : null;
-      const selectedStation = selSt && selSt.prices[fuel] ? {
-        name: selSt.name,
-        price: selSt.prices[fuel],
-        distance: calcDist(userLat, userLng, selSt.lat, selSt.lng)
-      } : null;
-
-      // Favoris avec prix
-      const favStations = favorites
-        .map(id => allStations.find(s => s.id === id))
-        .filter(s => s && s.prices[fuel])
-        .map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) }));
-
-      window.OptiTankBridge.post({
-        type: 'updateWidget',
-        payload: {
-          bestPrice: best.prices[fuel],
-          stationName: best.name,
-          distance: calcDist(userLat, userLng, best.lat, best.lng),
-          fuelType: fuel,
-          stations: top.map(s => ({ name: s.name, price: s.prices[fuel], distance: calcDist(userLat, userLng, s.lat, s.lng) })),
-          favorites: favStations,
-          selectedStation: selectedStation,
-          priceHistory: [],
-          updatedAt: new Date().toISOString(),
-        }
-      });
-    }
-
+    refreshProfile();
     sendWidgetUpdate();
   }
 

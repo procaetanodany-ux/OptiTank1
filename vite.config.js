@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: { enabled: true },
+      workbox: {
+        navigateFallbackDenylist: [/^\/admin/],
+      },
       manifest: {
         name: 'OptiTank Pro',
         short_name: 'OptiTank',
