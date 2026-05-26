@@ -1048,4 +1048,4 @@ body {
 
 .stats-chip:active {
   transform: scale(0.95);
-}
+}@keyframes scaleUpBounce { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } } @keyframes dash { to { stroke-dashoffset: 0; } }

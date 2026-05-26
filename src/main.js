@@ -21,23 +21,6 @@ const _ADMIN_ROUTE = new URLSearchParams(window.location.search).get('_admin') =
                   || window.location.hash === '#admin';
 if (_ADMIN_ROUTE) window.history.replaceState(null, '', '/');
 
-  // ── Mini Console Debug (TEMPORAIRE) ──
-  const miniConsole = document.createElement('div');
-  miniConsole.style.cssText = 'position:fixed;bottom:0;left:0;right:0;height:30%;background:rgba(0,0,0,0.8);color:#0f0;font-family:monospace;font-size:10px;overflow-y:auto;z-index:999999;padding:10px;pointer-events:none;';
-  document.documentElement.appendChild(miniConsole);
-  const oldLog = console.log;
-  const oldErr = console.error;
-  console.log = function(...args) {
-    oldLog(...args);
-    miniConsole.innerHTML += `<div>[LOG] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}</div>`;
-    miniConsole.scrollTop = miniConsole.scrollHeight;
-  };
-  console.error = function(...args) {
-    oldErr(...args);
-    miniConsole.innerHTML += `<div style="color:red">[ERR] ${args.map(a => typeof a === 'object' && a.message ? a.message : (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ')}</div>`;
-    miniConsole.scrollTop = miniConsole.scrollHeight;
-  };
-
 document.addEventListener('DOMContentLoaded', () => {
   // Splash screen handled natively by the iOS app launch screen — JS version removed.
 
@@ -409,6 +392,37 @@ document.addEventListener('DOMContentLoaded', () => {
           <button class="ob-social-btn" id="login-apple-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg> Apple</button>
         </div>
         <div class="ob-link-row" style="margin-top:14px">Pas de compte ? <span class="ob-link" id="login-go-register">Créer un compte</span></div>
+      </div>
+    </div>
+
+    <div class="ob-step" id="ob-step-forgot">
+      <div class="ob-step-inner" style="padding:20px 24px 32px;overflow-y:auto">
+        <button class="ob-back-btn" data-back="login"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Retour</button>
+        
+        <div id="ob-forgot-form">
+          <div class="ob-step-header">
+            <div class="ob-step-icon" style="background:linear-gradient(135deg,#8B84FF,#4338CA)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <h2 class="ob-h2">Mot de passe oublié ?</h2>
+            <p class="ob-sub-text">Saisis ton email, nous t'enverrons un lien de réinitialisation.</p>
+          </div>
+          <div class="ob-float-field" style="margin-top:20px;">
+            <input type="email" id="fp-email" class="ob-float-input" placeholder=" " autocomplete="email"/>
+            <label for="fp-email">Adresse email</label>
+            <div class="ob-field-line"></div>
+          </div>
+          <div id="fp-error" class="ob-error" style="display:none"></div>
+          <button class="ob-btn-primary" id="ob-fp-btn" style="margin-top:24px;">Envoyer le lien</button>
+        </div>
+
+        <div id="ob-forgot-success" style="display:none; text-align:center; padding-top:40px;">
+          <div style="width:72px; height:72px; margin:0 auto 24px; border-radius:50%; background:linear-gradient(135deg,#8B84FF,#4338CA); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 16px rgba(139,132,255,0.3); animation: scaleUpBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="stroke-dasharray:30; stroke-dashoffset:30; animation: dash 0.5s ease-out 0.3s forwards;"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h2 class="ob-h2" style="margin-bottom:12px;">Lien envoyé !</h2>
+          <p class="ob-sub-text" style="font-size:15px; margin-bottom:32px;">Vérifie ta boîte mail (et tes spams). Clique sur le lien pour réinitialiser ton mot de passe.</p>
+          <button class="ob-btn-primary" id="ob-fp-back-btn">Retour à la connexion</button>
+        </div>
+        
       </div>
     </div>
 
@@ -1196,22 +1210,53 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ob-login-btn')?.addEventListener('click', handleLogin);
   document.getElementById('login-go-register')?.addEventListener('click', () => goToStep('ob-step-1', 'forward'));
 
-  document.getElementById('login-forgot-pwd')?.addEventListener('click', async () => {
-    let email = document.getElementById('lf-email')?.value.trim();
-    if (!email) {
-      email = prompt('Veuillez entrer votre adresse email pour réinitialiser le mot de passe :');
-      if (!email || !email.trim()) return;
-      email = email.trim();
-    }
-    const errEl = document.getElementById('login-error');
+  document.getElementById('login-forgot-pwd')?.addEventListener('click', () => {
+    // Fill the email field if they already typed something
+    const lfEmail = document.getElementById('lf-email')?.value.trim();
+    if (lfEmail) document.getElementById('fp-email').value = lfEmail;
+    
+    // Reset forms
+    document.getElementById('ob-forgot-form').style.display = 'block';
+    document.getElementById('ob-forgot-success').style.display = 'none';
+    const errEl = document.getElementById('fp-error');
     if (errEl) errEl.style.display = 'none';
+    
+    goToStep('ob-step-forgot', 'forward');
+  });
+
+  document.getElementById('ob-fp-btn')?.addEventListener('click', async () => {
+    const email = document.getElementById('fp-email')?.value.trim();
+    const errEl = document.getElementById('fp-error');
+    const btn = document.getElementById('ob-fp-btn');
+    
+    if (!email) {
+      errEl.textContent = "Saisis une adresse email valide.";
+      errEl.style.display = 'block';
+      return;
+    }
+    
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Envoi en cours...';
+
     try {
       await sendPasswordResetEmail(auth, email);
-      showToast('Email de réinitialisation envoyé ! Vérifie ta boîte de réception.', 'success');
+      document.getElementById('ob-forgot-form').style.display = 'none';
+      document.getElementById('ob-forgot-success').style.display = 'block';
     } catch(err) {
-      const msg = err.code === 'auth/user-not-found' ? 'Aucun compte associé à cet email.' : err.message;
-      showToast('Erreur : ' + msg, 'error');
+      console.error(err);
+      errEl.textContent = err.code === 'auth/invalid-email' ? "Adresse email invalide." : 
+                          err.code === 'auth/user-not-found' ? "Aucun compte trouvé avec cet email." : 
+                          err.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Envoyer le lien';
     }
+  });
+
+  document.getElementById('ob-fp-back-btn')?.addEventListener('click', () => {
+    goToStep('ob-step-login', 'backward');
   });
 
   async function handleSocialAuth(provider, errorElId) {
