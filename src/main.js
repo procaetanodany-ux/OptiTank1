@@ -1209,12 +1209,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Récupère le résultat après un redirect (iOS app + mobile browsers)
-  if (sessionStorage.getItem('_pendingSocialAuth') === '1') {
+  if (sessionStorage.getItem('_pendingSocialAuth') === '1' || sessionStorage.getItem('_pendingDeleteAccount') === '1') {
+    const isDelete = sessionStorage.getItem('_pendingDeleteAccount') === '1';
     sessionStorage.removeItem('_pendingSocialAuth');
+    sessionStorage.removeItem('_pendingDeleteAccount');
     const pendingErrId = sessionStorage.getItem('_pendingSocialAuthErr') || '';
     sessionStorage.removeItem('_pendingSocialAuthErr');
+    
     getRedirectResult(auth).then(async (cred) => {
       if (!cred) return;
+      
+      if (isDelete) {
+        try {
+          if (cred.user) {
+            try { await deleteDoc(doc(db, 'users', cred.user.uid)); } catch(_) {}
+            try { await deleteDoc(doc(db, 'push_tokens', cred.user.uid + '_ios')); } catch(_) {}
+            await deleteUser(cred.user);
+          }
+          localStorage.clear();
+          location.reload();
+        } catch (e) {
+          showToast('Erreur suppression : ' + (e?.message || 'inconnue'), 'error');
+        }
+        return;
+      }
+
       currentUser = cred.user;
       const exists = await loadFromFirestore(cred.user);
       if (exists && userProfile?.vehicleBrand) {
@@ -4058,8 +4077,14 @@ document.addEventListener('DOMContentLoaded', () => {
           const provider = new OAuthProvider('apple.com');
           provider.addScope('email');
           provider.setCustomParameters({ locale: 'fr' });
-          await signInWithPopup(auth, provider);
-          await doDelete();
+          if (window.isOptiTankApp) {
+            sessionStorage.setItem('_pendingDeleteAccount', '1');
+            await signInWithRedirect(auth, provider);
+            return;
+          } else {
+            await signInWithPopup(auth, provider);
+            await doDelete();
+          }
         } catch(reAuthErr) {
           showToast('Reconnexion échouée. Déconnecte-toi puis reconnecte-toi avant de supprimer.', 'error');
           if (btn) { btn.disabled = false; btn.textContent = 'Supprimer définitivement mon compte'; }
