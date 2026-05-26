@@ -4017,28 +4017,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Delete account (irreversible) — wipes Firestore doc + Firebase Auth user + local storage
   document.getElementById('btn-delete-account')?.addEventListener('click', async () => {
-    if (!confirm('Cette action est IRRÉVERSIBLE. Toutes vos données seront définitivement supprimées. Continuer ?')) return;
-    if (!confirm('Dernière confirmation : supprimer définitivement votre compte ?')) return;
+    // In-app confirmation (browser confirm() is blocked in WKWebView)
+    const confirmed = await new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;padding:0 0 32px;backdrop-filter:blur(8px);';
+      overlay.innerHTML = `
+        <div style="width:100%;max-width:480px;margin:0 auto;background:#13121F;border:1px solid rgba(239,68,68,.25);border-radius:24px 24px 0 0;padding:28px 24px 12px;">
+          <div style="font-size:32px;text-align:center;margin-bottom:10px;">⚠️</div>
+          <h3 style="color:white;font-size:17px;font-weight:700;text-align:center;margin-bottom:8px;">Supprimer mon compte</h3>
+          <p style="font-size:13px;color:rgba(255,255,255,.5);text-align:center;line-height:1.6;margin-bottom:20px;">Cette action est <strong style="color:#ef4444;">irréversible</strong>. Toutes tes données (profil, historique, favoris) seront définitivement effacées.</p>
+          <button id="_del-confirm" style="width:100%;padding:14px;background:#ef4444;border:none;border-radius:14px;color:white;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;">Oui, supprimer mon compte</button>
+          <button id="_del-cancel" style="width:100%;padding:12px;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:14px;color:rgba(255,255,255,.5);font-size:14px;cursor:pointer;">Annuler</button>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.querySelector('#_del-confirm').onclick = () => { document.body.removeChild(overlay); resolve(true); };
+      overlay.querySelector('#_del-cancel').onclick  = () => { document.body.removeChild(overlay); resolve(false); };
+    });
+    if (!confirmed) return;
 
     const btn = document.getElementById('btn-delete-account');
-    if (btn) { btn.disabled = true; btn.textContent = 'Suppression…'; }
-    try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Suppression en cours…'; }
+
+    const doDelete = async () => {
       if (currentUser) {
-        // Delete Firestore doc first (while still authenticated)
         try { await deleteDoc(doc(db, 'users', currentUser.uid)); } catch(_) {}
         try { await deleteDoc(doc(db, 'push_tokens', currentUser.uid + '_ios')); } catch(_) {}
-        // Then delete the auth user — may throw 'auth/requires-recent-login'
         await deleteUser(currentUser);
       }
       localStorage.clear();
       location.reload();
+    };
+
+    try {
+      await doDelete();
     } catch(err) {
       if (err?.code === 'auth/requires-recent-login') {
-        alert('Pour des raisons de sécurité, reconnecte-toi puis réessaie la suppression.');
-        await signOut(auth);
-        location.reload();
+        // Re-authenticate then retry
+        showToast('Reconnexion requise pour confirmer la suppression…', 'info');
+        try {
+          const provider = new OAuthProvider('apple.com');
+          provider.addScope('email');
+          provider.setCustomParameters({ locale: 'fr' });
+          await signInWithPopup(auth, provider);
+          await doDelete();
+        } catch(reAuthErr) {
+          showToast('Reconnexion échouée. Déconnecte-toi puis reconnecte-toi avant de supprimer.', 'error');
+          if (btn) { btn.disabled = false; btn.textContent = 'Supprimer définitivement mon compte'; }
+        }
       } else {
-        alert('Erreur lors de la suppression : ' + (err?.message || 'inconnue'));
+        showToast('Erreur suppression : ' + (err?.message || 'inconnue'), 'error');
         if (btn) { btn.disabled = false; btn.textContent = 'Supprimer définitivement mon compte'; }
       }
     }
