@@ -51,7 +51,7 @@ const FUEL_LABEL = { SP95: 'SP95', SP98: 'SP98', DIESEL: 'Diesel', DIESEL_PREMIU
  * Récupère TOUTES les stations non-supprimées depuis Firestore
  */
 export async function fetchTCSStations() {
-  const CACHE_KEY = 'fillz_stations_cache_v3';
+  const CACHE_KEY = 'fillz_stations_cache_v4';
   const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
@@ -77,7 +77,9 @@ export async function fetchTCSStations() {
 
   // Sauvegarder sans timestamps (ils seront là au prochain refresh via cache)
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: tcsData }));
+    if (tcsData && tcsData.length > 0) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: tcsData }));
+    }
   } catch { /* quota dépassé — pas bloquant */ }
 
   return tcsData;
