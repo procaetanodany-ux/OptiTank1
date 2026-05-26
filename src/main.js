@@ -411,10 +411,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <button class="ob-social-btn" id="ob-apple-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg> Apple</button>
         </div>
         <div id="reg-error" class="ob-error" style="display:none"></div>
-        <label id="ob-cgu-label" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer;">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;">
           <input type="checkbox" id="ob-cgu-check" style="width:16px;height:16px;margin-top:2px;accent-color:#8B84FF;flex-shrink:0;cursor:pointer;"/>
-          <span style="font-size:12px;color:rgba(255,255,255,.38);line-height:1.6;">J'accepte les <a href="/terms.html" target="_blank" style="color:#8B84FF;text-decoration:none;">Conditions d'utilisation</a> et la <a href="/privacy.html" target="_blank" style="color:#8B84FF;text-decoration:none;">Politique de confidentialité</a> d'OptiTank.</span>
-        </label>
+          <label for="ob-cgu-check" style="font-size:12px;color:rgba(255,255,255,.38);line-height:1.6;cursor:pointer;margin:0;">
+            J'accepte les <a href="/terms.html" style="color:#8B84FF;text-decoration:none;" onclick="event.stopPropagation()">Conditions d'utilisation</a> et la <a href="/privacy.html" style="color:#8B84FF;text-decoration:none;" onclick="event.stopPropagation()">Politique de confidentialité</a> d'OptiTank.
+          </label>
+        </div>
         <button class="ob-btn-primary" id="ob-register-btn" disabled style="margin-top:14px;opacity:0.4;transition:opacity .2s;">Continuer →</button>
       </div>
     </div>
@@ -1031,9 +1033,9 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <p id="profile-app-version" style="text-align:center;font-size:11px;color:var(--text-muted);opacity:0.5;margin:18px 0 4px;letter-spacing:0.3px;"></p>
         <div style="text-align:center;margin-bottom:12px;">
-          <a href="/privacy.html" target="_blank" style="font-size:11px;color:rgba(255,255,255,.2);text-decoration:none;margin:0 8px;">Confidentialité</a>
+          <a href="/privacy.html" style="font-size:11px;color:rgba(255,255,255,.2);text-decoration:none;margin:0 8px;">Confidentialité</a>
           <span style="color:rgba(255,255,255,.1);font-size:10px;">·</span>
-          <a href="/terms.html" target="_blank" style="font-size:11px;color:rgba(255,255,255,.2);text-decoration:none;margin:0 8px;">CGU</a>
+          <a href="/terms.html" style="font-size:11px;color:rgba(255,255,255,.2);text-decoration:none;margin:0 8px;">CGU</a>
         </div>
       </div>
     </div>`;
