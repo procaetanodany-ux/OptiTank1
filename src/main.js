@@ -789,11 +789,11 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
     <div class="view view-details" id="view-details">
-      <div class="details-header" style="justify-content:center; align-items:center; position:sticky; top:0;">
-        <span style="font-weight:700; font-size:16px;">Détails</span>
-        <button class="details-back-btn" id="btn-details-back" style="position:absolute; right:20px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.1); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; padding:0;">
-          <i class="ph-bold ph-x" style="font-size:14px; margin:0;"></i>
+      <div class="details-header" style="justify-content:center; align-items:center; position:sticky; top:0; display:flex;">
+        <button class="details-back-btn" id="btn-details-back" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); background:transparent; border:none; color:var(--accent-purple); font-size:16px; font-weight:600; display:flex; align-items:center; gap:6px; padding:0; cursor:pointer;">
+          <i class="ph-bold ph-caret-left" style="font-size:20px;"></i> Retour
         </button>
+        <span style="font-weight:700; font-size:16px;">Détails</span>
       </div>
       <div class="details-content" style="padding-bottom:120px;">
         <div class="details-main-info">
@@ -846,7 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
 
-      <div class="details-bottom-actions" style="position:absolute; bottom:0; left:0; right:0; padding:20px 24px 34px; background:linear-gradient(to top, rgba(17,17,21,1) 60%, rgba(17,17,21,0)); display:flex; gap:12px; z-index:100; align-items:center;">
+      <div class="details-bottom-actions" style="position:absolute; bottom:0; left:0; right:0; padding:20px 24px 34px; background:linear-gradient(to top, rgba(10,10,15,1) 60%, rgba(10,10,15,0)); display:flex; gap:12px; z-index:100; align-items:center;">
         <button class="btn-icon circle" id="det-fav" style="flex-shrink:0; width:52px; height:52px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:white;"><i class="ph ph-heart" style="font-size:24px;"></i></button>
         <button class="btn-icon circle" style="flex-shrink:0; width:52px; height:52px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:white;"><i class="ph ph-share-network" style="font-size:24px;"></i></button>
         <button class="btn-primary" id="det-go" style="flex:1; border-radius:16px; height:52px; font-size:16px; box-shadow:0 8px 16px rgba(139,132,255,0.3);">Aller à cette station <i class="ph ph-arrow-up-right"></i></button>
@@ -4228,6 +4228,12 @@ document.addEventListener('DOMContentLoaded', () => {
         mainContentEl.style.overflowY = 'hidden';
       } else {
         mainContentEl.style.overflowY = 'auto';
+      }
+      
+      if (name === 'details') {
+        mainContentEl.style.paddingBottom = '0px';
+      } else {
+        mainContentEl.style.paddingBottom = 'var(--nav-height)';
       }
     }
   }
