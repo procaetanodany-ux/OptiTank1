@@ -41,7 +41,8 @@ export async function fetchStationHistory(stationId, numDays = 14) {
   }
 }
 
-const BENZIN_API = '/api/benzin/benzinGetStationByBbox';
+const API_BASE = (window.location.protocol === 'file:' || window.isOptiTankApp) ? 'https://optitank.online' : '';
+const BENZIN_API = `${API_BASE}/api/benzin/benzinGetStationByBbox`;
 const CH_BBOX = [5.9, 45.8, 10.6, 47.8];
 const FETCH_FUELS = ['SP95', 'SP98', 'DIESEL', 'DIESEL_PREMIUM', 'GPL', 'GNC', 'E85'];
 const FUEL_LABEL = { SP95: 'SP95', SP98: 'SP98', DIESEL: 'Diesel', DIESEL_PREMIUM: 'Diesel Premium', GPL: 'GPL', GNC: 'GNC', E85: 'E85' };
