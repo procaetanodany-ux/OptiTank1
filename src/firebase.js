@@ -6,7 +6,11 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAeo6stBSEBh7uQUIkYgJ7TFFjM8Siu4AU",
-  authDomain: "optitank-c7709.firebaseapp.com",
+  // Use the custom domain the iOS WKWebView actually loads from, so the
+  // /__/auth/handler redirect dance stays same-origin (no Safari ITP /
+  // storage-partitioning breakage). For users on web.app, popup still works
+  // cross-origin via postMessage.
+  authDomain: "optitank.online",
   projectId: "optitank-c7709",
   storageBucket: "optitank-c7709.firebasestorage.app",
   messagingSenderId: "234789643916",

@@ -70,7 +70,17 @@ struct WebView: UIViewRepresentable {
         ) {
             guard let url = action.request.url else { decisionHandler(.allow); return }
             let internalHosts = ["optitank.online", "optitank-c7709.web.app", "optitank-c7709.firebaseapp.com"]
-            if internalHosts.contains(where: { url.host?.contains($0) == true }) || url.scheme == "about" {
+            // OAuth providers must stay inside the WKWebView so signInWithRedirect can complete
+            // without bouncing to external Safari (which breaks sessionStorage continuity).
+            let oauthHosts = [
+                "accounts.google.com", "accounts.youtube.com",
+                "appleid.apple.com", "idmsa.apple.com",
+                "ssl.gstatic.com", "www.gstatic.com", "www.google.com", "www.googleapis.com"
+            ]
+            let host = url.host ?? ""
+            let isInternal = internalHosts.contains(where: { host.contains($0) })
+            let isOAuth = oauthHosts.contains(where: { host.contains($0) })
+            if isInternal || isOAuth || url.scheme == "about" {
                 decisionHandler(.allow)
             } else if url.scheme == "https" || url.scheme == "http" {
                 UIApplication.shared.open(url)

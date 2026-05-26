@@ -1212,12 +1212,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const errEl = document.getElementById(errorElId);
     if (errEl) errEl.style.display = 'none';
     try {
-      // Mobile (iOS app WKWebView, Safari iOS, Chrome Android…) : popup peu fiable / bloqué — utiliser redirect
-      const ua = navigator.userAgent || '';
-      const isMobile = window.isOptiTankApp
-        || /iPhone|iPad|iPod|Android|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(ua)
-        || (('ontouchstart' in window) && window.matchMedia && window.matchMedia('(max-width: 820px)').matches);
-      if (isMobile) {
+      // iOS WKWebView app native : popup ouvre Safari externe → on ne peut QUE faire redirect.
+      // Pour tout le reste (desktop, Safari iOS, Chrome Android, PWA standalone), popup est plus
+      // fiable que redirect — redirect casse en PWA iOS à cause du storage-partitioning Safari.
+      if (window.isOptiTankApp) {
         sessionStorage.setItem('_pendingSocialAuth', '1');
         sessionStorage.setItem('_pendingSocialAuthErr', errorElId || '');
         await signInWithRedirect(auth, provider);
