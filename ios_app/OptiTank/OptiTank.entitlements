@@ -8,5 +8,9 @@
 	<array>
 		<string>group.online.optitank.app</string>
 	</array>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist>

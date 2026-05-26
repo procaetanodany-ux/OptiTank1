@@ -1267,9 +1267,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('ob-google-btn')?.addEventListener('click', () => handleSocialAuth(new GoogleAuthProvider(), 'reg-error'));
-  document.getElementById('ob-apple-btn')?.addEventListener('click',  () => handleSocialAuth(new OAuthProvider('apple.com'), 'reg-error'));
+  document.getElementById('ob-apple-btn')?.addEventListener('click',  () => {
+    const appleProvider = new OAuthProvider('apple.com');
+    appleProvider.addScope('email');
+    appleProvider.addScope('name');
+    appleProvider.setCustomParameters({ locale: 'fr' });
+    handleSocialAuth(appleProvider, 'reg-error');
+  });
   document.getElementById('login-google-btn')?.addEventListener('click', () => handleSocialAuth(new GoogleAuthProvider(), 'login-error'));
-  document.getElementById('login-apple-btn')?.addEventListener('click',  () => handleSocialAuth(new OAuthProvider('apple.com'), 'login-error'));
+  document.getElementById('login-apple-btn')?.addEventListener('click',  () => {
+    const appleProvider = new OAuthProvider('apple.com');
+    appleProvider.addScope('email');
+    appleProvider.addScope('name');
+    appleProvider.setCustomParameters({ locale: 'fr' });
+    handleSocialAuth(appleProvider, 'login-error');
+  });
 
   // Register
   async function handleRegister() {
