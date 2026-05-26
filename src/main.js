@@ -6,8 +6,8 @@ import 'leaflet.markercluster';
 import { fetchTCSStations, fetchStationHistory } from './api.js';
 import { FUEL_CONSUMPTION } from './vehicles.js';
 import { auth, db, storage } from './firebase.js';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
-import { doc, getDoc, setDoc, addDoc, collection, getDocs } from "firebase/firestore";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, deleteUser } from "firebase/auth";
+import { doc, getDoc, setDoc, addDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import Chart from 'chart.js/auto';
 import { getBrands, getModels, getYearRange } from './vehicleAPI.js';
@@ -19,58 +19,7 @@ const _ADMIN_ROUTE = new URLSearchParams(window.location.search).get('_admin') =
 if (_ADMIN_ROUTE) window.history.replaceState(null, '', '/');
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ── Splash Screen Logic ──────────────────────────────────
-  (async function runSplash() {
-    const $ = id => document.getElementById(id);
-    const splash = $('splash-screen');
-    if (!splash) return;
-    const icon = $('sp-icon'), wm = $('sp-wordmark'), tl = $('sp-tagline');
-    const dots = $('sp-dots'), glow = $('sp-glow'), glowTeal = $('sp-glow-teal');
-    const ring = $('sp-ring'), d1 = $('sp-d1'), d2 = $('sp-d2'), d3 = $('sp-d3');
-    const wait = ms => new Promise(r => setTimeout(r, ms));
-
-    // Phase 1 — glow expands
-    await wait(300);
-    glow.style.transition = 'opacity 600ms ease, transform 800ms cubic-bezier(0.34,1.2,0.64,1)';
-    glow.style.opacity = '1';
-    glowTeal.style.transition = 'opacity 500ms ease 200ms';
-    glowTeal.style.opacity = '1';
-    await wait(500);
-
-    // Phase 2 — logo spring in
-    icon.style.transition = 'opacity 300ms ease, transform 600ms cubic-bezier(0.34,1.56,0.64,1)';
-    icon.style.opacity = '1';
-    icon.style.transform = 'scale(1) translateY(0)';
-    ring.style.transition = 'opacity 400ms ease 200ms';
-    ring.style.opacity = '1';
-    ring.style.animation = 'sp-ring-pulse 2.5s ease-in-out 600ms infinite';
-    await wait(700);
-
-    // Phase 3 — wordmark slides up
-    wm.style.transition = 'opacity 400ms ease, transform 500ms cubic-bezier(0.34,1.2,0.64,1)';
-    wm.style.opacity = '1';
-    wm.style.transform = 'translateY(0)';
-    await wait(400);
-
-    // Phase 4 — tagline fades in
-    tl.style.transition = 'opacity 350ms ease';
-    tl.style.opacity = '1';
-    await wait(500);
-
-    // Phase 5 — loading dots pulse
-    dots.style.transition = 'opacity 250ms ease';
-    dots.style.opacity = '1';
-    [d1, d2, d3].forEach((d, i) => {
-      d.style.animation = `sp-dot-pulse 0.75s ease-in-out ${i * 150}ms infinite`;
-    });
-    await wait(950);
-
-    // Phase 6 — slide-up exit
-    splash.style.transition = 'transform 550ms cubic-bezier(0.76,0,0.24,1)';
-    splash.style.transform = 'translateY(-100%)';
-    await wait(600);
-    splash.remove();
-  })();
+  // Splash screen handled natively by the iOS app launch screen — JS version removed.
 
   // ── PWA Gateway Logic ────────────────────────────────────
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://') || new URLSearchParams(location.search).has('app');
@@ -181,6 +130,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const mainContent = document.getElementById('main-content');
   const navItems = document.querySelectorAll('.nav-item');
+
+  // ── Background preload: fire the station fetch ASAP so it's ready when the user opens the map/radar ──
+  // We kick it before any heavy DOM work; result is cached in `allStations` via the dataLoaded flag in loadMapData().
+  const _stationPreload = fetchTCSStations().catch(() => []);
 
   // ── State ──────────────────────────────────────────────
   let allStations = [];
@@ -455,8 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <button class="ob-social-btn" id="ob-apple-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg> Apple</button>
         </div>
         <div id="reg-error" class="ob-error" style="display:none"></div>
-        <button class="ob-btn-primary" id="ob-register-btn">Continuer →</button>
-        <div style="font-size:11px;color:rgba(255,255,255,.22);text-align:center;margin-top:12px;line-height:1.6">En continuant, tu acceptes nos Conditions d'utilisation<br/>et notre Politique de confidentialité.</div>
+        <label id="ob-cgu-label" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer;">
+          <input type="checkbox" id="ob-cgu-check" style="width:16px;height:16px;margin-top:2px;accent-color:#8B84FF;flex-shrink:0;cursor:pointer;"/>
+          <span style="font-size:12px;color:rgba(255,255,255,.38);line-height:1.6;">J'accepte les <a href="/terms.html" target="_blank" style="color:#8B84FF;text-decoration:none;">Conditions d'utilisation</a> et la <a href="/privacy.html" target="_blank" style="color:#8B84FF;text-decoration:none;">Politique de confidentialité</a> d'OptiTank.</span>
+        </label>
+        <button class="ob-btn-primary" id="ob-register-btn" disabled style="margin-top:14px;opacity:0.4;transition:opacity .2s;">Continuer →</button>
       </div>
     </div>
 
@@ -1062,9 +1018,20 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div style="margin-top:30px; padding:0 10px;">
           <button class="btn-danger-corp" id="btn-logout" style="display:none; margin-bottom:16px;">Se déconnecter</button>
-          <button class="btn-secondary" id="btn-reset">Réinitialiser l'application</button>
+          <details id="advanced-settings" style="margin-top:8px;">
+            <summary style="font-size:11px;color:rgba(255,255,255,.32);cursor:pointer;letter-spacing:.3px;text-align:center;padding:6px 0;user-select:none;list-style:none;">Paramètres avancés</summary>
+            <div style="margin-top:10px;padding:12px;border:1px solid rgba(239,68,68,.15);border-radius:10px;background:rgba(239,68,68,.04);">
+              <div style="font-size:11px;color:rgba(255,255,255,.45);line-height:1.5;margin-bottom:8px;">La suppression du compte est <b style="color:#ef4444">irréversible</b>. Toutes vos données (profil, historique, favoris) seront définitivement effacées.</div>
+              <button id="btn-delete-account" style="width:100%;padding:9px 10px;background:transparent;border:1px solid rgba(239,68,68,.35);border-radius:8px;color:#ef4444;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.2px;">Supprimer définitivement mon compte</button>
+            </div>
+          </details>
         </div>
-        <p id="profile-app-version" style="text-align:center;font-size:11px;color:var(--text-muted);opacity:0.5;margin:18px 0 8px;letter-spacing:0.3px;"></p>
+        <p id="profile-app-version" style="text-align:center;font-size:11px;color:var(--text-muted);opacity:0.5;margin:18px 0 4px;letter-spacing:0.3px;"></p>
+        <div style="text-align:center;margin-bottom:12px;">
+          <a href="/privacy.html" target="_blank" style="font-size:11px;color:rgba(255,255,255,.2);text-decoration:none;margin:0 8px;">Confidentialité</a>
+          <span style="color:rgba(255,255,255,.1);font-size:10px;">·</span>
+          <a href="/terms.html" target="_blank" style="font-size:11px;color:rgba(255,255,255,.2);text-decoration:none;margin:0 8px;">CGU</a>
+        </div>
       </div>
     </div>`;
 
@@ -1298,10 +1265,23 @@ document.addEventListener('DOMContentLoaded', () => {
       goToStep('ob-step-2', 'forward');
     } catch(err) {
       const msg = err.code === 'auth/email-already-in-use' ? 'Cet email est déjà utilisé.' : err.message;
-      errEl.textContent = msg; errEl.style.display = 'block'; btn.disabled = false;
+      errEl.textContent = msg; errEl.style.display = 'block';
+      const cgu = document.getElementById('ob-cgu-check');
+      btn.disabled = !(cgu && cgu.checked);
+      btn.style.opacity = (cgu && cgu.checked) ? '1' : '0.4';
     }
   }
   document.getElementById('ob-register-btn')?.addEventListener('click', handleRegister);
+
+  // CGU checkbox — active le bouton seulement si accepté
+  const cguCheck = document.getElementById('ob-cgu-check');
+  const regBtn   = document.getElementById('ob-register-btn');
+  if (cguCheck && regBtn) {
+    cguCheck.addEventListener('change', () => {
+      regBtn.disabled = !cguCheck.checked;
+      regBtn.style.opacity = cguCheck.checked ? '1' : '0.4';
+    });
+  }
 
   // ── Vehicle picker: Brand → Model → Year (static curated DB) ──────
 
@@ -3181,7 +3161,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 10000);
 
     try {
-      allStations = await fetchTCSStations();
+      // Prefer the background preload kicked off at DOMContentLoaded — instant if it already resolved.
+      allStations = await _stationPreload;
+      if (!allStations || !allStations.length) allStations = await fetchTCSStations();
     } catch(err) {
       console.error(err);
       allStations = [];
@@ -3810,7 +3792,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btn-radar-scan');
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner-small"></div> Analyse...';
-    if (!allStations.length) allStations = await fetchTCSStations();
+    if (!allStations.length) {
+      // Use the background preload if it's already done, else fall back to a fresh fetch
+      try { allStations = (await _stationPreload) || []; } catch(_) { allStations = []; }
+      if (!allStations.length) allStations = await fetchTCSStations();
+    }
 
     const vFuel = getVehicleFuel();
     const tank = getTankSize();
@@ -4026,13 +4012,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Reset
-  document.getElementById('btn-reset')?.addEventListener('click', () => {
-    localStorage.clear();
-    if (currentUser) {
-      signOut(auth).then(() => { location.reload(); });
-    } else {
+  // Delete account (irreversible) — wipes Firestore doc + Firebase Auth user + local storage
+  document.getElementById('btn-delete-account')?.addEventListener('click', async () => {
+    if (!confirm('Cette action est IRRÉVERSIBLE. Toutes vos données seront définitivement supprimées. Continuer ?')) return;
+    if (!confirm('Dernière confirmation : supprimer définitivement votre compte ?')) return;
+
+    const btn = document.getElementById('btn-delete-account');
+    if (btn) { btn.disabled = true; btn.textContent = 'Suppression…'; }
+    try {
+      if (currentUser) {
+        // Delete Firestore doc first (while still authenticated)
+        try { await deleteDoc(doc(db, 'users', currentUser.uid)); } catch(_) {}
+        try { await deleteDoc(doc(db, 'push_tokens', currentUser.uid + '_ios')); } catch(_) {}
+        // Then delete the auth user — may throw 'auth/requires-recent-login'
+        await deleteUser(currentUser);
+      }
+      localStorage.clear();
       location.reload();
+    } catch(err) {
+      if (err?.code === 'auth/requires-recent-login') {
+        alert('Pour des raisons de sécurité, reconnecte-toi puis réessaie la suppression.');
+        await signOut(auth);
+        location.reload();
+      } else {
+        alert('Erreur lors de la suppression : ' + (err?.message || 'inconnue'));
+        if (btn) { btn.disabled = false; btn.textContent = 'Supprimer définitivement mon compte'; }
+      }
     }
   });
 
