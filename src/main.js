@@ -4207,6 +4207,19 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.remove('active'); el.style.display = 'none';
       }
     });
+
+    const bNav = document.querySelector('.bottom-nav');
+    if (bNav) {
+      if (name === 'details') {
+        bNav.style.transform = 'translate(-50%, 150px)';
+        bNav.style.opacity = '0';
+        bNav.style.pointerEvents = 'none';
+      } else {
+        bNav.style.transform = 'translate(-50%, 0)';
+        bNav.style.opacity = '1';
+        bNav.style.pointerEvents = 'auto';
+      }
+    }
     
     // Fix: Disable global scrolling on views that handle their own interactions (Map, Radar)
     const mainContentEl = document.getElementById('main-content');
