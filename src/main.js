@@ -6,15 +6,16 @@ import 'leaflet.markercluster';
 import { fetchTCSStations, fetchStationHistory } from './api.js';
 import { FUEL_CONSUMPTION } from './vehicles.js';
 import { auth, db, storage } from './firebase.js';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { doc, getDoc, setDoc, addDoc, collection, getDocs } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import Chart from 'chart.js/auto';
 import { getBrands, getModels, getYearRange } from './vehicleAPI.js';
 
-// ── Admin access via ?_admin=1 (set by admin.html after pwd check) ──
+// ── Admin access ──
+const ADMIN_EMAIL = 'pro.caetanodany@gmail.com';
 const _ADMIN_ROUTE = new URLSearchParams(window.location.search).get('_admin') === '1'
-                  && sessionStorage.getItem('_admin_auth') === '1';
+                  || window.location.hash === '#admin';
 if (_ADMIN_ROUTE) window.history.replaceState(null, '', '/');
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -291,6 +292,10 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadFromFirestore(user);
       currentUser = user; // Set it AFTER loading is done to prevent premature syncs
       if (userProfile) debouncedSyncToFirestore();
+      if (_ADMIN_ROUTE && user.email === ADMIN_EMAIL) {
+        sessionStorage.removeItem('_admin_auth');
+        showAdminPanel();
+      }
       // Push notifications iOS — demande permission + sauvegarde token APNS
       if (window.isOptiTankApp && window.OptiTankBridge) {
         // Demande la permission push si pas encore accordée
@@ -1054,6 +1059,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <p style="font-size:12px;color:var(--text-muted);margin:4px 0 10px;">Choisissez quelle station afficher dans votre widget iOS. Si aucune station n'est sélectionnée, le widget affiche le meilleur prix dans un rayon de 25 km.</p>
         <div id="widget-station-picker" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;"></div>
 
+        <div id="admin-btn-wrapper" style="display:none;margin-top:20px;padding:0 10px;">
+          <button id="btn-open-admin" style="width:100%;padding:13px;background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;border-radius:13px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.1px;">⚙️ Panneau Administration</button>
+        </div>
         <div style="margin-top:30px; padding:0 10px;">
           <button class="btn-danger-corp" id="btn-logout" style="display:none; margin-bottom:16px;">Se déconnecter</button>
           <button class="btn-secondary" id="btn-reset">Réinitialiser l'application</button>
@@ -1204,6 +1212,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const errEl = document.getElementById(errorElId);
     if (errEl) errEl.style.display = 'none';
     try {
+      // Mobile (iOS app WKWebView, Safari iOS, Chrome Android…) : popup peu fiable / bloqué — utiliser redirect
+      const ua = navigator.userAgent || '';
+      const isMobile = window.isOptiTankApp
+        || /iPhone|iPad|iPod|Android|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+        || (('ontouchstart' in window) && window.matchMedia && window.matchMedia('(max-width: 820px)').matches);
+      if (isMobile) {
+        sessionStorage.setItem('_pendingSocialAuth', '1');
+        sessionStorage.setItem('_pendingSocialAuthErr', errorElId || '');
+        await signInWithRedirect(auth, provider);
+        return;
+      }
       const cred = await signInWithPopup(auth, provider);
       currentUser = cred.user;
       const exists = await loadFromFirestore(cred.user);
@@ -1221,6 +1240,32 @@ document.addEventListener('DOMContentLoaded', () => {
       if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
       else showToast(msg, 'error');
     }
+  }
+
+  // Récupère le résultat après un redirect (iOS app + mobile browsers)
+  if (sessionStorage.getItem('_pendingSocialAuth') === '1') {
+    sessionStorage.removeItem('_pendingSocialAuth');
+    const pendingErrId = sessionStorage.getItem('_pendingSocialAuthErr') || '';
+    sessionStorage.removeItem('_pendingSocialAuthErr');
+    getRedirectResult(auth).then(async (cred) => {
+      if (!cred) return;
+      currentUser = cred.user;
+      const exists = await loadFromFirestore(cred.user);
+      if (exists && userProfile?.vehicleBrand) {
+        obContainer.style.opacity = '0';
+        setTimeout(() => { obContainer.style.display = 'none'; isFirstVisit = false; refreshProfile(); switchView('radar'); runRadarScan(); }, 400);
+      } else {
+        if (cred.user.displayName) tempProfile.name = cred.user.displayName.split(' ')[0];
+        goToStep('ob-step-2', 'forward');
+      }
+    }).catch((err) => {
+      console.error('Redirect auth error:', err);
+      const msg = err.code === 'auth/account-exists-with-different-credential'
+        ? 'Un compte existe déjà avec cet email.' : 'Connexion échouée. Réessaie.';
+      const errEl = pendingErrId ? document.getElementById(pendingErrId) : null;
+      if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+      else showToast(msg, 'error');
+    });
   }
 
   document.getElementById('ob-google-btn')?.addEventListener('click', () => handleSocialAuth(new GoogleAuthProvider(), 'reg-error'));
@@ -1931,6 +1976,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) logoutBtn.style.display = currentUser ? 'block' : 'none';
 
+    // Admin button — only for admin email
+    const adminBtnWrapper = document.getElementById('admin-btn-wrapper');
+    if (adminBtnWrapper) {
+      const isAdmin = currentUser?.email === ADMIN_EMAIL;
+      adminBtnWrapper.style.display = isAdmin ? 'block' : 'none';
+      if (isAdmin) {
+        const adminBtn = document.getElementById('btn-open-admin');
+        if (adminBtn && !adminBtn._adminWired) {
+          adminBtn._adminWired = true;
+          adminBtn.addEventListener('click', () => showAdminPanel());
+        }
+      }
+    }
+
     // Avatar update
     const avatarWrapper = document.getElementById('avatar-img-wrapper');
     if (avatarWrapper && userProfile?.avatar) {
@@ -2294,6 +2353,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function showAdminPanel() {
+    if (currentUser?.email !== ADMIN_EMAIL) {
+      alert('Accès réservé à l\'administrateur.');
+      return;
+    }
     document.getElementById('admin-panel-overlay')?.remove();
 
     // Spinner
@@ -2677,8 +2740,8 @@ document.addEventListener('DOMContentLoaded', () => {
               <div>
                 <div class="adm-card">
                   <div class="adm-card-title">✍️ Composer la notification</div>
-                  <label style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:5px;">Token FCM</label>
-                  <input id="adm-push-token" type="text" placeholder="Coller un token FCM ici..."
+                  <label style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:5px;">Token APNs</label>
+                  <input id="adm-push-token" type="text" placeholder="Coller un token APNs ici..."
                     style="width:100%;box-sizing:border-box;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:11px;color:#1e293b;margin-bottom:10px;font-family:monospace;">
                   <label style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;display:block;margin-bottom:5px;">Titre</label>
                   <input id="adm-push-title" type="text" value="🔔 Test OptiTank"
@@ -2789,13 +2852,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const title = document.getElementById('adm-push-title')?.value.trim();
       const body  = document.getElementById('adm-push-body')?.value.trim();
       const url   = document.getElementById('adm-push-url')?.value.trim();
-      if (!token) { showAdminToast('⚠ Entrez un token FCM', '#f59e0b', '#1c1917'); return; }
+      if (!token) { showAdminToast('⚠ Entrez un token APNs', '#f59e0b', '#1c1917'); return; }
       if (!title) { showAdminToast('⚠ Entrez un titre', '#f59e0b', '#1c1917'); return; }
       showAdminToast('📤 Envoi en cours...', '#8b5cf6', '#fff');
       try {
-        const { getFunctions, httpsCallable } = await import('firebase/functions');
-        const fn = httpsCallable(getFunctions(), 'sendTestPush');
-        await fn({ token, title, body, url });
+        if (!auth.currentUser) throw new Error('Non connecté');
+        const idToken = await auth.currentUser.getIdToken();
+        const resp = await fetch('https://us-central1-optitank-c7709.cloudfunctions.net/sendPush', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+          body: JSON.stringify({ token, title, body, data: url ? { url } : undefined }),
+        });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Erreur serveur');
         showAdminToast('✓ Notification envoyée avec succès', '#22c55e', '#052e16');
       } catch(e) {
         showAdminToast('✗ Erreur: ' + (e.message || e), '#ef4444', '#fff');
@@ -2803,13 +2872,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('adm-clear-cache').onclick = () => {
-      localStorage.removeItem('fillz_stations_cache_v2');
+      localStorage.removeItem('fillz_stations_cache_v3');
       localStorage.removeItem('fillz_admin_stations_cache');
       showAdminToast('✓ Cache vidé — les stations seront rechargées au prochain démarrage', '#f59e0b', '#1c1917');
     };
 
     document.getElementById('adm-reload-stations').onclick = async () => {
-      localStorage.removeItem('fillz_stations_cache_v2');
+      localStorage.removeItem('fillz_stations_cache_v3');
       showAdminToast('🔄 Rechargement en cours...', '#8b5cf6', '#fff');
       try {
         const { fetchTCSStations: fetch_ } = await import('./api.js');
@@ -2877,17 +2946,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!listEl) return;
       listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">Chargement...</div>';
       try {
+        const entries = [];
         const snap = await getDocs(collection(db, 'push_tokens'));
-        if (snap.empty) {
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const token = data.token || data.apnsToken || d.id;
+          if (token) entries.push({ token, uid: data.uid, platform: data.platform || 'ios' });
+        });
+        if (entries.length === 0) {
           listEl.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px;">Aucun appareil enregistré</div>';
           return;
         }
-        listEl.innerHTML = snap.docs.map(d => {
-          const data = d.data();
-          const token = data.token || d.id;
+        listEl.innerHTML = entries.map(({ token, uid, platform }) => {
           const short = token.length > 24 ? token.slice(0, 24) + '…' : token;
           return `<div style="padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;margin-bottom:4px;" onclick="document.getElementById('adm-push-token').value='${token.replace(/'/g, "\\'")}';this.style.background='#ede9fe';">
-            <div style="font-size:11px;font-weight:700;color:#1e293b;">${data.platform || 'web'} — ${data.uid ? data.uid.slice(0,8) + '…' : 'anonyme'}</div>
+            <div style="font-size:11px;font-weight:700;color:#1e293b;">${platform} — ${uid ? uid.slice(0,8) + '…' : 'anonyme'}</div>
             <div style="font-size:10px;color:#94a3b8;font-family:monospace;margin-top:2px;">${short}</div>
           </div>`;
         }).join('');
@@ -3014,8 +3087,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => t.remove(), 3000);
   }
 
-  // ── Admin auto-open after password validated in admin.html ──
-  if (_ADMIN_ROUTE) { sessionStorage.removeItem('_admin_auth'); showAdminPanel(); }
+  // Admin auto-open is handled inside onAuthStateChanged to ensure currentUser is set
 
   // ── MAP THEMES ─────────────────────────────────────────
   const MAP_TILES = {
