@@ -3895,9 +3895,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Radar IA ───────────────────────────────────────────
   async function runRadarScan() {
     const resultsDiv = document.getElementById('radar-results');
+    const radarContainer = document.querySelector('.radar-container');
+    const savingsBanner = document.getElementById('radar-savings-banner');
     const btn = document.getElementById('btn-radar-scan');
+    
+    // Reset UI for scanning
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner-small"></div> Analyse...';
+    resultsDiv.innerHTML = '';
+    if (savingsBanner) savingsBanner.style.display = 'none';
+    if (radarContainer) radarContainer.style.display = 'block';
+
     if (!allStations.length) {
       // Use the background preload if it's already done, else fall back to a fresh fetch
       try { allStations = (await _stationPreload) || []; } catch(_) { allStations = []; }
@@ -3940,13 +3948,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const top = scored.slice(0, 5);
 
     if (!top.length) {
+      if (radarContainer) radarContainer.style.display = 'none';
       resultsDiv.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px">Aucune station trouvée.</p>';
       btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-brain"></i> Analyser';
       return;
     }
 
     // Savings banner
-    const savingsBanner = document.getElementById('radar-savings-banner');
     const savingsAmount = document.getElementById('radar-savings-amount');
     if (savingsBanner && savingsAmount && top.length > 1) {
       const avgPrice = top.reduce((s, x) => s + x.pricePerL, 0) / top.length;
@@ -4005,6 +4013,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     resultsDiv.innerHTML = html;
+    if (radarContainer) radarContainer.style.display = 'none';
     btn.disabled = false; btn.innerHTML = '<i class="ph-bold ph-brain"></i> Relancer';
 
     // Add click listeners to radar cards to fly to station
