@@ -21,6 +21,23 @@ const _ADMIN_ROUTE = new URLSearchParams(window.location.search).get('_admin') =
                   || window.location.hash === '#admin';
 if (_ADMIN_ROUTE) window.history.replaceState(null, '', '/');
 
+  // ── Mini Console Debug (TEMPORAIRE) ──
+  const miniConsole = document.createElement('div');
+  miniConsole.style.cssText = 'position:fixed;bottom:0;left:0;right:0;height:30%;background:rgba(0,0,0,0.8);color:#0f0;font-family:monospace;font-size:10px;overflow-y:auto;z-index:999999;padding:10px;pointer-events:none;';
+  document.documentElement.appendChild(miniConsole);
+  const oldLog = console.log;
+  const oldErr = console.error;
+  console.log = function(...args) {
+    oldLog(...args);
+    miniConsole.innerHTML += `<div>[LOG] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}</div>`;
+    miniConsole.scrollTop = miniConsole.scrollHeight;
+  };
+  console.error = function(...args) {
+    oldErr(...args);
+    miniConsole.innerHTML += `<div style="color:red">[ERR] ${args.map(a => typeof a === 'object' && a.message ? a.message : (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ')}</div>`;
+    miniConsole.scrollTop = miniConsole.scrollHeight;
+  };
+
 document.addEventListener('DOMContentLoaded', () => {
   // Splash screen handled natively by the iOS app launch screen — JS version removed.
 
