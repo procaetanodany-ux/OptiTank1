@@ -7,7 +7,7 @@ import { fetchTCSStations, fetchStationHistory } from './api.js';
 import { FUEL_CONSUMPTION } from './vehicles.js';
 import { auth, db, storage } from './firebase.js';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, OAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, deleteUser, sendPasswordResetEmail } from "firebase/auth";
-import { doc, getDoc, setDoc, addDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, addDoc, collection, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import Chart from 'chart.js/auto';
 import { getBrands, getModels, getYearRange } from './vehicleAPI.js';
@@ -789,17 +789,13 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
     <div class="view view-details" id="view-details">
-      <div class="details-header">
-        <button class="details-back-btn" id="btn-details-back">
-          <i class="ph-bold ph-arrow-left"></i> Details
+      <div class="details-header" style="justify-content:center; align-items:center; position:sticky; top:0;">
+        <span style="font-weight:700; font-size:16px;">Détails</span>
+        <button class="details-back-btn" id="btn-details-back" style="position:absolute; right:20px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.1); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; padding:0;">
+          <i class="ph-bold ph-x" style="font-size:14px; margin:0;"></i>
         </button>
-        <div class="details-top-actions">
-          <button class="btn-icon circle"><i class="ph ph-share-network"></i></button>
-          <button class="btn-icon circle" id="det-fav"><i class="ph ph-heart"></i></button>
-          <button class="btn-primary" id="det-go" style="width:auto; padding:10px 20px; border-radius:20px;">Aller <i class="ph ph-arrow-up-right"></i></button>
-        </div>
       </div>
-      <div class="details-content">
+      <div class="details-content" style="padding-bottom:120px;">
         <div class="details-main-info">
           <div class="details-badges" id="det-badges">
             <span id="badge-distance" class="badge-proche" style="display:none;">Proche</span>
@@ -829,10 +825,6 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
 
-        <div class="action-card" id="btn-add-widget">
-          <i class="ph ph-squares-four"></i> Ajouter au widget
-        </div>
-
         <p id="det-updated"></p>
 
         <div class="details-section-title"><i class="ph ph-info"></i> À propos</div>
@@ -852,6 +844,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="ph ph-caret-right"></i>
           </div>
         </div>
+      </div>
+
+      <div class="details-bottom-actions" style="position:absolute; bottom:0; left:0; right:0; padding:20px 24px 34px; background:linear-gradient(to top, rgba(17,17,21,1) 60%, rgba(17,17,21,0)); display:flex; gap:12px; z-index:100; align-items:center;">
+        <button class="btn-icon circle" id="det-fav" style="flex-shrink:0; width:52px; height:52px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:white;"><i class="ph ph-heart" style="font-size:24px;"></i></button>
+        <button class="btn-icon circle" style="flex-shrink:0; width:52px; height:52px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:white;"><i class="ph ph-share-network" style="font-size:24px;"></i></button>
+        <button class="btn-primary" id="det-go" style="flex:1; border-radius:16px; height:52px; font-size:16px; box-shadow:0 8px 16px rgba(139,132,255,0.3);">Aller à cette station <i class="ph ph-arrow-up-right"></i></button>
       </div>
     </div>
 
@@ -1045,10 +1043,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <div class="section-title">Vos Favoris</div>
         <div id="profile-favorites-list" style="display:flex; flex-direction:column; gap:6px; margin-top:6px;"></div>
-
-        <div class="section-title" style="margin-top:24px;">Station dans le widget</div>
-        <p style="font-size:12px;color:var(--text-muted);margin:4px 0 10px;">Choisissez quelle station afficher dans votre widget iOS. Si aucune station n'est sélectionnée, le widget affiche le meilleur prix dans un rayon de 25 km.</p>
-        <div id="widget-station-picker" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;"></div>
 
         <div id="admin-btn-wrapper" style="display:none;margin-top:20px;padding:0 10px;">
           <button id="btn-open-admin" style="width:100%;padding:13px;background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;border-radius:13px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.1px;">⚙️ Panneau Administration</button>
@@ -3141,9 +3135,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('fillz_update_mode')) applyUpdateMode(true);
 
   // Then sync with Firestore for cross-device propagation
-  (async () => {
-    try {
-      const cfgSnap = await getDoc(doc(db, 'app_config', 'settings'));
+  try {
+    onSnapshot(doc(db, 'app_config', 'settings'), async (cfgSnap) => {
       if (!cfgSnap.exists()) return;
       const cfg = cfgSnap.data();
 
@@ -3175,8 +3168,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(_) {}
         location.reload(true);
       }
-    } catch(_) {}
-  })();
+    });
+  } catch(e) {
+    console.error('Config sync error:', e);
+  }
 
   function showAdminToast(msg, bg, color) {
     const t = document.createElement('div');
