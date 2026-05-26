@@ -11,6 +11,9 @@ import { doc, getDoc, setDoc, addDoc, collection, getDocs, deleteDoc } from "fir
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import Chart from 'chart.js/auto';
 import { getBrands, getModels, getYearRange } from './vehicleAPI.js';
+import Tesseract from 'tesseract.js';
+window.Tesseract = Tesseract; // Expose for backward-compat with existing window.Tesseract usage
+
 
 // ── Admin access ──
 const ADMIN_EMAIL = 'pro.caetanodany@gmail.com';

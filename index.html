@@ -12,93 +12,11 @@
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#6C63FF" />
   <title>OptiTank Web App</title>
-  <!-- Phosphor Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 
 <body>
-  <!-- Splash Screen Animé -->
-  <div id="splash-screen" class="splash-screen">
-    <!-- Particles -->
-    <div class="sp-particle" style="width:4px;height:4px;background:rgba(108,99,255,.4);top:18%;left:12%;animation:sp-float 3.8s ease-in-out 0.9s infinite"></div>
-    <div class="sp-particle" style="width:3px;height:3px;background:rgba(0,212,170,.35);top:25%;left:78%;animation:sp-float 4.2s ease-in-out 0.3s infinite"></div>
-    <div class="sp-particle" style="width:5px;height:5px;background:rgba(108,99,255,.25);top:68%;left:88%;animation:sp-float 3.5s ease-in-out 1.2s infinite"></div>
-    <div class="sp-particle" style="width:3px;height:3px;background:rgba(0,212,170,.3);top:72%;left:10%;animation:sp-float 4.6s ease-in-out 0.6s infinite"></div>
-    <div class="sp-particle" style="width:4px;height:4px;background:rgba(139,132,255,.3);top:40%;left:6%;animation:sp-float 3.9s ease-in-out 1.8s infinite"></div>
-    <div class="sp-particle" style="width:3px;height:3px;background:rgba(0,212,170,.25);top:32%;left:90%;animation:sp-float 4.1s ease-in-out 0s infinite"></div>
-    <div class="sp-particle" style="width:6px;height:6px;background:rgba(108,99,255,.15);top:82%;left:48%;animation:sp-float 5s ease-in-out 2.2s infinite"></div>
-    <div class="sp-particle" style="width:3px;height:3px;background:rgba(255,255,255,.1);top:14%;left:55%;animation:sp-float 3.7s ease-in-out 1.5s infinite"></div>
-    <div class="sp-particle" style="width:4px;height:4px;background:rgba(108,99,255,.3);top:58%;left:24%;animation:sp-float 4.3s ease-in-out 0.8s infinite"></div>
-    <div class="sp-particle" style="width:3px;height:3px;background:rgba(0,212,170,.3);top:48%;left:72%;animation:sp-float 3.6s ease-in-out 2.5s infinite"></div>
-    <div class="sp-particle" style="width:5px;height:5px;background:rgba(139,132,255,.2);top:88%;left:30%;animation:sp-float 4.8s ease-in-out 1s infinite"></div>
-    <div class="sp-particle" style="width:3px;height:3px;background:rgba(255,255,255,.08);top:8%;left:35%;animation:sp-float 4s ease-in-out 3s infinite"></div>
-    <!-- Background glows -->
-    <div class="sp-glow" id="sp-glow"></div>
-    <div class="sp-glow-teal" id="sp-glow-teal"></div>
-    <!-- Logo teardrop -->
-    <div class="sp-icon" id="sp-icon">
-      <div class="sp-ring" id="sp-ring"></div>
-      <svg width="130" height="168" viewBox="0 0 130 168" fill="none">
-        <defs>
-          <linearGradient id="sp-drop" x1="0%" y1="0%" x2="25%" y2="100%">
-            <stop offset="0%" stop-color="#B0ABFF"/>
-            <stop offset="40%" stop-color="#6C63FF"/>
-            <stop offset="100%" stop-color="#3328B8"/>
-          </linearGradient>
-          <radialGradient id="sp-hl" cx="32%" cy="26%" r="52%">
-            <stop offset="0%" stop-color="rgba(255,255,255,0.28)"/>
-            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-          </radialGradient>
-          <radialGradient id="sp-teal" cx="38%" cy="34%" r="66%">
-            <stop offset="0%" stop-color="#5FF0D8"/>
-            <stop offset="100%" stop-color="#009E80"/>
-          </radialGradient>
-          <filter id="sp-drop-shadow" x="-30%" y="-15%" width="160%" height="140%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur"/>
-            <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.42  0 0 0 0 0.38  0 0 0 0 1  0 0 0 0.7 0" result="s"/>
-            <feMerge><feMergeNode in="s"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-          <filter id="sp-tglow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-          <filter id="sp-antglow" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-        <path d="M65 10 C48 10 20 42 20 76 C20 112 38 152 65 152 C92 152 110 112 110 76 C110 42 82 10 65 10 Z" fill="url(#sp-drop)" filter="url(#sp-drop-shadow)"/>
-        <path d="M65 10 C48 10 20 42 20 76 C20 112 38 152 65 152 C92 152 110 112 110 76 C110 42 82 10 65 10 Z" fill="url(#sp-hl)"/>
-        <g filter="url(#sp-tglow)">
-          <circle cx="65" cy="95" r="32" fill="none" stroke="#00D4AA" stroke-width="1.2" opacity="0.22"/>
-          <circle cx="65" cy="95" r="21" fill="none" stroke="#00D4AA" stroke-width="1.4" opacity="0.38"/>
-          <circle cx="65" cy="95" r="11" fill="none" stroke="#00D4AA" stroke-width="1.6" opacity="0.60"/>
-        </g>
-        <circle cx="65" cy="95" r="7" fill="rgba(0,212,170,0.22)"/>
-        <circle cx="65" cy="95" r="4.5" fill="#00D4AA"/>
-        <circle cx="62.5" cy="92.5" r="1.8" fill="white" opacity="0.60"/>
-        <line x1="65" y1="10" x2="65" y2="2" stroke="#8B84FF" stroke-width="4.5" stroke-linecap="round"/>
-        <circle cx="65" cy="-4" r="10" fill="rgba(0,212,170,0.22)" filter="url(#sp-antglow)"/>
-        <circle cx="65" cy="-4" r="8" fill="url(#sp-teal)"/>
-        <circle cx="62" cy="-7" r="3" fill="white" opacity="0.52"/>
-      </svg>
-    </div>
-    <!-- Wordmark -->
-    <div class="sp-wordmark" id="sp-wordmark">
-      <div class="sp-wordmark-text">OptiTank<span>.</span></div>
-    </div>
-    <!-- Tagline -->
-    <div class="sp-tagline" id="sp-tagline">Carburant intelligent · Suisse 🇨🇭</div>
-    <!-- Loading dots -->
-    <div class="sp-dots" id="sp-dots">
-      <div class="sp-dot" id="sp-d1"></div>
-      <div class="sp-dot" id="sp-d2"></div>
-      <div class="sp-dot" id="sp-d3"></div>
-    </div>
-  </div>
   <!-- Landing Showcase PWA Gateway -->
   <!-- Landing Showcase PWA Gateway -->
   <div id="landing-showcase" style="display: none;">
