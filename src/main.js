@@ -1257,6 +1257,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   document.getElementById('ob-apple-btn')?.addEventListener('click',  () => {
+    const cguCheck = document.getElementById('ob-cgu-check');
+    if (cguCheck && !cguCheck.checked) {
+      const errEl = document.getElementById('reg-error');
+      if (errEl) { errEl.textContent = "Tu dois accepter les conditions d'utilisation pour continuer."; errEl.style.display = 'block'; }
+      return;
+    }
     const appleProvider = new OAuthProvider('apple.com');
     appleProvider.addScope('email');
     appleProvider.addScope('name');
