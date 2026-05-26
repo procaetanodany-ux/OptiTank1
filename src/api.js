@@ -51,7 +51,7 @@ const FUEL_LABEL = { SP95: 'SP95', SP98: 'SP98', DIESEL: 'Diesel', DIESEL_PREMIU
  * Récupère TOUTES les stations non-supprimées depuis Firestore
  */
 export async function fetchTCSStations() {
-  const CACHE_KEY = 'fillz_stations_cache_v4';
+  const CACHE_KEY = 'fillz_stations_cache_v5';
   const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
@@ -112,8 +112,8 @@ async function fetchFromTCS() {
         map[id] = {
           id,
           name: s.displayName || rawBrand || 'Station',
-          brand: (rawBrand && rawBrand !== 'undefined' && rawBrand !== 'null') ? rawBrand : '',
-          address: s.formattedAddress || '',
+          brand: (rawBrand && rawBrand.toLowerCase() !== 'undefined' && rawBrand.toLowerCase() !== 'null') ? rawBrand : '',
+          address: (s.formattedAddress && s.formattedAddress.toLowerCase() !== 'undefined' && s.formattedAddress.toLowerCase() !== 'null') ? s.formattedAddress : '',
           lat: s.latitude,
           lng: s.longitude,
           prices: {},
